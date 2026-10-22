@@ -2,7 +2,9 @@
 node_modules/
 *.log
 .vscode/
-# 保留团队 Cursor 规则进库；忽略本地缓存等
+# 保留团队 Cursor 规则与 skills 进库；忽略本地缓存等
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+!.cursor/skills/
+!.cursor/skills/**
