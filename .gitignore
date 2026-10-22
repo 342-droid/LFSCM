@@ -1,5 +1,8 @@
 .DS_Store
 node_modules/
 *.log
-.cursor/
 .vscode/
+# 保留团队 Cursor 规则进库；忽略本地缓存等
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**

@@ -1,0 +1,30 @@
+---
+description: 本地预览服务（localhost:5174）须保持可用
+alwaysApply: true
+---
+
+# 本地预览服务
+
+用户常用 `http://localhost:5174/...` 预览本仓库（供应链独立原型）。
+
+## 规则
+
+1. 若用户反馈预览打不开 / 连不上 `localhost:5174`，**先检查端口再启动**，不要只让用户手动跑命令。
+2. 启动命令（在本仓库根目录）：
+
+```powershell
+npm run preview
+```
+
+等价于 `node tools/preview-server.mjs`（自研静态服务，无文件监听，避免 `serve` 的 EMFILE 崩溃）。
+
+3. 仅确认是否已在跑（未在跑时会拉起**独立守护进程**后退出，不要把它当长期前台服务）：
+
+```powershell
+npm run preview:ensure
+```
+
+4. **不要**再推荐 `npx serve -l 5174` 或 `npm run dev`（本仓库没有 Vite）。
+5. 页面 URL 可带或不带 `.html`：`/SCM/master_data_product_category` 与 `/SCM/master_data_product_category.html` 均可。
+6. 服务同时监听 `127.0.0.1` 与 `::1`。健康检查用 `/__lferp_preview_health`；端口被僵死 node 占用时可回收后重绑。
+7. 默认端口为 **5174**，与主仓 LFerp（5173）错开；可用环境变量 `LFERP_PREVIEW_PORT` 覆盖。

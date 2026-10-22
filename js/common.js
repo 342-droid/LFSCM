@@ -1,4 +1,4 @@
-/* 公共JavaScript - 冷丰WMS系统 */
+/* 公共JavaScript - 冷丰系统 */
 
 /**
  * 系统配置
