@@ -1,0 +1,11 @@
+{
+  "name": "lferp-supply-chain",
+  "private": true,
+  "description": "冷丰ERP · 供应链主数据原型（从 LFerp 拆出）",
+  "type": "module",
+  "scripts": {
+    "preview": "node tools/preview-server.mjs",
+    "preview:ensure": "node tools/preview-server.mjs --ensure",
+    "preview:watch": "node tools/preview-server.mjs --watch"
+  }
+}
