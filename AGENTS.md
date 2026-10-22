@@ -33,11 +33,11 @@
 - 单位枚举与一级分类「商品单位」配置见 `js/master-data-units.js` 与商品分类 PRD。
 - 业务 PRD 在 `docs/`；团队协作规范在 `docs/team-rules/`；Cursor 自动执行镜像在 `.cursor/rules/`。
 
-## WMS / 页面开发 Skill
+## 供应链 / 页面开发 Skill
 
-开发或修改本仓库 HTML/CSS/JavaScript 页面时，遵循 WMS 前端规范（结构、PageManager、公共组件、样式复用与 Git 提交约定）：
+开发或修改本仓库 HTML/CSS/JavaScript 页面时，遵循供应链前端规范（结构、PageManager、公共组件、样式复用与 Git 提交约定）：
 
-- Cursor Skill：`.cursor/skills/WMS/SKILL.md`（可用 `$wms-frontend` / WMS skill）
-- Agents Skill：`.agents/skills/wms-frontend/SKILL.md`
+- Cursor Skill：`.cursor/skills/SCM/SKILL.md`（可用 `$scm-frontend` / SCM skill）
+- Agents Skill：`.agents/skills/scm-frontend/SKILL.md`
 
 说明：本仓侧栏为供应链专用 `master-data-sidebar.js`，脚本栈以现有供应链页面为准；新建偏列表/CRUD 页时仍按 Skill 中的 PageManager 与公共组件原则对齐。可选启用提交钩子：`git config core.hooksPath .githooks`。

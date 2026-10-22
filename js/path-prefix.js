@@ -1,6 +1,6 @@
 /**
  * 首页 index.html 位于项目根目录，mdm*.html 位于 MDM/，crm*.html 位于 CRM/，其余业务页位于 SCM/；shop-h5/ 等为根目录下静态页。
- * 本文件必须在 wms-sidebar / mdm-sidebar / common 等脚本之前加载。
+ * 本文件必须在 master-data-sidebar / mdm-sidebar / common 等脚本之前加载。
  */
 (function () {
     function normPath(p) {
@@ -58,14 +58,12 @@
         var prefix = inSubModuleFolder() ? '../' : '';
         return prefix + relPath;
     }
-    window.wmsPath = {
+    window.scmPath = {
         inScmFolder: inScmFolder,
         inMdmFolder: inMdmFolder,
         inCrmFolder: inCrmFolder,
         /** @deprecated 使用 inScmFolder */
         inFulfillmentFolder: inScmFolder,
-        /** @deprecated 使用 inScmFolder */
-        inWmsHtmlFolder: inScmFolder,
         page: page,
         asset: asset
     };

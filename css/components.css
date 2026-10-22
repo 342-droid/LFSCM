@@ -1571,7 +1571,7 @@ input[type="number"] {
 .region-cascader-wrapper.is-disabled .region-cascader-arrow {
     display: none;
 }
-.wms-sku-image {
+.lf-sku-image {
     display: block;
     width: 44px;
     height: 44px;
@@ -1580,7 +1580,7 @@ input[type="number"] {
     border-radius: 4px;
     background: #f8fafc;
 }
-.wms-sku-image-wrap {
+.lf-sku-image-wrap {
     display: inline-flex;
     width: 44px;
     height: 44px;
@@ -1593,13 +1593,13 @@ input[type="number"] {
     color: #a0a8b3;
     font-size: 11px;
 }
-.wms-sku-image-wrap .wms-sku-image {
+.lf-sku-image-wrap .lf-sku-image {
     border: 0;
 }
-.wms-sku-image-placeholder[hidden] {
+.lf-sku-image-placeholder[hidden] {
     display: none;
 }
-.wms-sku-image-preview-modal {
+.lf-sku-image-preview-modal {
     position: fixed;
     inset: 0;
     z-index: 10000;
@@ -1609,8 +1609,8 @@ input[type="number"] {
     padding: 32px;
     background: rgba(0, 0, 0, .68);
 }
-.wms-sku-image-preview-modal.is-open { display: flex; }
-.wms-sku-image-preview-modal img {
+.lf-sku-image-preview-modal.is-open { display: flex; }
+.lf-sku-image-preview-modal img {
     max-width: min(800px, 90vw);
     max-height: 85vh;
     border-radius: 6px;

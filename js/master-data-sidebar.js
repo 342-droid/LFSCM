@@ -1,6 +1,6 @@
 /* 主数据管理专用侧栏 */
 (function () {
-    const wp = window.wmsPath || { page: function (f) { return f; }, asset: function (r) { return r; } };
+    const wp = window.scmPath || { page: function (f) { return f; }, asset: function (r) { return r; } };
     const pageHref = function (f) { return wp.page(f); };
     const assetHref = function (r) { return wp.asset(r); };
     let currentPage = (window.location.pathname.split('/').pop() || 'master_data_product_category.html').toLowerCase().split('?')[0];

@@ -1,6 +1,6 @@
-# WMS 前端页面开发规范（Skill 说明）
+# 供应链前端页面开发规范（Skill 说明）
 
-本 Skill 用于指导在本仓库内进行 **WMS Web 页面的开发与修改**。  
+本 Skill 用于指导在本仓库内进行 **供应链 Web 页面的开发与修改**。  
 当你（或 AI 助手）在本项目中改动 HTML / CSS / JS 页面时，**默认必须遵循本规范**，除非用户在对话中明确说明需要特殊处理。
 
 ---
@@ -8,7 +8,7 @@
 ## 1. 适用场景与优先级
 
 - **适用范围**
-  - WMS 系统的所有 HTML 页面重构与新建。
+  - 本仓库供应链相关的所有 HTML 页面重构与新建。
   - 与 `PageManager`、公共模态框、公共样式、公共脚本相关的前端开发。
 - **优先级约定**
   - **强制**：页面结构、共享组件使用方式、禁止手写的组件。
@@ -27,7 +27,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>冷丰WMS - 页面名称</title>
+    <title>冷丰 - 页面名称</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/components.css">
     <style>
@@ -36,7 +36,7 @@
 </head>
 <body>
     <div id="sidebar-container"></div>
-    <script src="js/wms-sidebar.js"></script>
+    <script src="js/master-data-sidebar.js"></script>
     <div id="header-container"></div>
     
     <div class="container">
@@ -264,7 +264,7 @@ const page = new PageManager({
 
 ## 10. Git 提交规范（强制 · 含改动总结）
 
-本节适用于 **本仓库内所有 Git 提交**（不仅限于 WMS 页面）。当用户要求提交、或 Agent 代为执行 `git commit` / `git push` 时，须遵循下列要求。
+本节适用于 **本仓库内所有 Git 提交**（不仅限于供应链页面）。当用户要求提交、或 Agent 代为执行 `git commit` / `git push` 时，须遵循下列要求。
 
 ### 10.1 提交前必须整理改动认知
 
@@ -275,7 +275,7 @@ const page = new PageManager({
 
 - **第一行（subject）**：一句概括本次提交目的；可自选用 `类型: 简述`（如 `fix:` / `feat:` / `docs:`）或中文短句，保持简洁。
 - **正文（body，建议空一行后书写）**：用**分条列表**概述本次提交实际改了什么，至少覆盖：
-  - **涉及模块或路径**（如 `WMS/xxx.html`、`js/common.js`）；
+  - **涉及模块或路径**（如 `SCM/xxx.html`、`js/common.js`）；
   - **行为或展示上的变化**（用户/业务可感知点）；
   - 若有 **风险或回滚注意点**，可单列一条。
 - 总结应来自对 **暂存区 diff** 的理解，而不是只抄文件路径；路径可与 `git diff --staged --name-only` 交叉核对。

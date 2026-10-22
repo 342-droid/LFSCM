@@ -3,7 +3,7 @@
 /**
  * 系统配置
  */
-const WMSConfig = {
+const LFConfig = {
     // 菜单配置
     menuItems: [
         { href: 'warehouse.html', text: '仓库' },
@@ -81,7 +81,7 @@ function loadHeader() {
     const headerContainer = document.getElementById('header-container');
     
     if (headerContainer) {
-        const wp = window.wmsPath || { page: function (f) { return f; }, asset: function (r) { return r; } };
+        const wp = window.scmPath || { page: function (f) { return f; }, asset: function (r) { return r; } };
         // 本仓库为供应链独立原型，顶栏仅保留供应链
         const headerHtml = `
             <!-- 顶部导航栏组件 -->
@@ -132,7 +132,7 @@ function loadHeader() {
     }
 }
 
-// [已废弃] loadSidebar() 已被 wms-sidebar.js 替代，不再需要
+// [已废弃] loadSidebar() 已被 master-data-sidebar.js 替代，不再需要
 
 // 侧边栏折叠功能
 function initSidebar() {
@@ -184,7 +184,7 @@ function showToast(message, type = 'error') {
     
     setTimeout(() => {
         toast.classList.remove('show');
-    }, WMSConfig.toastDuration);
+    }, LFConfig.toastDuration);
 }
 
 /**
@@ -326,7 +326,7 @@ function initWarehouseSelector() {
     function renderWarehouseList() {
         if (!warehouseList) return;
         
-        warehouseList.innerHTML = WMSConfig.warehouses.map(wh => `
+        warehouseList.innerHTML = LFConfig.warehouses.map(wh => `
             <div class="warehouse-item" data-code="${wh.code}" data-name="${wh.name}">
                 <span class="warehouse-item-code">${wh.code}</span>
                 <span class="warehouse-item-name">${wh.name}</span>
@@ -599,7 +599,7 @@ function showWarehouseSelectorAfterLogin() {
             
             if (warehouseSelectModal && warehouseList) {
                 // 渲染仓库列表
-                warehouseList.innerHTML = WMSConfig.warehouses.map(wh => `
+                warehouseList.innerHTML = LFConfig.warehouses.map(wh => `
                     <div class="warehouse-item" data-code="${wh.code}" data-name="${wh.name}">
                         <span class="warehouse-item-code">${wh.code}</span>
                         <span class="warehouse-item-name">${wh.name}</span>
@@ -732,7 +732,7 @@ function initPage() {
     // 加载 header 组件
     loadHeader();
     
-    // 初始化侧边栏功能（侧边栏HTML已经由 wms-sidebar.js 创建）
+    // 初始化侧边栏功能（侧边栏HTML已经由 master-data-sidebar.js 创建）
     initSidebar();
     
     // 初始化其他功能
@@ -761,7 +761,7 @@ if (document.readyState === 'loading') {
     if (/\/(shop-h5|user-app|store-app)\//i.test(window.location.pathname)) return;
 
     function assetHref(p) {
-        return (window.wmsPath && window.wmsPath.asset) ? window.wmsPath.asset(p) : p;
+        return (window.scmPath && window.scmPath.asset) ? window.scmPath.asset(p) : p;
     }
 
     var NEW_BADGE_DAYS = 7;
@@ -893,7 +893,7 @@ if (document.readyState === 'loading') {
 /* 后台列表序号（仓储/采购/物流除外）：按侧栏自动启停 */
 (function () {
     function assetUrl(rel) {
-        var wp = window.wmsPath;
+        var wp = window.scmPath;
         if (wp && typeof wp.asset === 'function') return wp.asset(rel);
         var p = String(window.location && window.location.pathname || '').replace(/\\/g, '/');
         if (/\/(MDM|SCM|CRM)(\/|$)/i.test(p)) return '../' + rel;
@@ -903,7 +903,7 @@ if (document.readyState === 'loading') {
         if (window.LfTableRowNo || document.getElementById('lf-table-row-no-js')) return;
         var s = document.createElement('script');
         s.id = 'lf-table-row-no-js';
-        s.src = assetUrl('js/lf-table-row-no.js') + '?v=20260825-wms-skip';
+        s.src = assetUrl('js/lf-table-row-no.js') + '?v=20260825-scm-skip';
         s.async = false;
         (document.body || document.head).appendChild(s);
     }
@@ -947,7 +947,7 @@ if (document.readyState === 'loading') {
         boot();
     }
 })();
-function getWmsSkuImage(skuCode) {
+function getLfSkuImage(skuCode) {
     var images = ['order-product-1.svg', 'order-product-2.svg', 'order-product-3.svg', 'order-product-4.svg'];
     var code = String(skuCode || '');
     var total = 0;
@@ -955,27 +955,27 @@ function getWmsSkuImage(skuCode) {
     return '../user-app/assets/' + images[total % images.length];
 }
 
-function getWmsSkuSpec(skuCode, skuName) {
+function getLfSkuSpec(skuCode, skuName) {
     var matched = String(skuName || '').match(/\d+(?:\.\d+)?\s*(?:kg|g|ml|L)(?:\/\S+)?/i);
     if (matched) return matched[0];
     var specs = { SKU001: '500g/袋', SKU002: '1kg/盒', SKU003: '12盒/箱' };
     return specs[String(skuCode || '')] || '标准规格';
 }
 
-function renderWmsSkuImage(skuCode, skuName) {
+function renderLfSkuImage(skuCode, skuName) {
     var alt = String(skuName || '商品图片').replace(/"/g, '&quot;');
-    return '<span class="wms-sku-image-wrap"><img class="wms-sku-image" src="' + getWmsSkuImage(skuCode) + '" alt="' + alt + '" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="wms-sku-image-placeholder" hidden>暂无图片</span></span>';
+    return '<span class="lf-sku-image-wrap"><img class="lf-sku-image" src="' + getLfSkuImage(skuCode) + '" alt="' + alt + '" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="lf-sku-image-placeholder" hidden>暂无图片</span></span>';
 }
 
-(function initWmsSkuImagePreview() {
+(function initLfSkuImagePreview() {
     function bind() {
         var modal = document.createElement('div');
-        modal.className = 'wms-sku-image-preview-modal';
+        modal.className = 'lf-sku-image-preview-modal';
         modal.innerHTML = '<img alt="商品图片">';
         document.body.appendChild(modal);
         var preview = modal.querySelector('img');
         document.addEventListener('click', function (event) {
-            var image = event.target.closest('.wms-sku-image');
+            var image = event.target.closest('.lf-sku-image');
             if (image && !image.hidden && image.src) {
                 event.stopPropagation();
                 preview.src = image.src;

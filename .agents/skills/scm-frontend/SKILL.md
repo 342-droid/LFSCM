@@ -1,19 +1,20 @@
 ---
-name: wms-frontend
-description: 按本仓库的页面结构、PageManager、公共组件、字段类型、CommonOptions、样式复用和 Git 提交约定开发或修改 WMS Web 前端。处理本项目 HTML、CSS、JavaScript 页面，新建或重构 WMS 页面，以及审查页面规范时使用。
+name: scm-frontend
+description: 按本仓库的页面结构、PageManager、公共组件、字段类型、CommonOptions、样式复用和 Git 提交约定开发或修改供应链 Web 前端。处理本项目 HTML、CSS、JavaScript 页面，新建或重构供应链页面，以及审查页面规范时使用。
 ---
 
-# WMS 前端页面开发规范
+# 供应链前端页面开发规范
 
 在改动前先检查同类页面与公共实现。用户明确要求与本规范冲突时，服从用户要求并在交付说明中指出偏差。
 
 ## 页面结构
 
 - 使用 `<!DOCTYPE html>`、`lang="zh-CN"`、UTF-8 和 viewport。
-- 标题使用 `冷丰WMS - 页面名称`。
+- 标题使用 `冷丰 - 页面名称`。
 - 引入 `css/common.css`、`css/components.css`；页面专有且复杂的样式拆到独立 CSS。
 - 保留 `sidebar-container`、`header-container`、`.container > main.main-content`。
 - 按顺序引入 `js/common.js`、`js/pagination.js`、`js/form-utils.js`、`js/modal-manager.js`、`js/page-manager.js`。
+- 侧栏使用 `js/master-data-sidebar.js`。
 - 不要在 HTML 中手写仓库选择、Toast、删除确认、新增或编辑模态框；使用公共脚本或 `PageManager` 注入。
 
 ## PageManager
