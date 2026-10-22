@@ -25,7 +25,9 @@
 
 - 给人看的权威文档：`docs/team-rules/`（编辑页布局、B 端业务提示、提交信息与更新日志等）
 - Cursor Agent 自动执行镜像：`.cursor/rules/`（`.mdc`）
+- WMS / 页面开发 Skill：`.cursor/skills/WMS/SKILL.md`、`.agents/skills/wms-frontend/`
 - 仓库级摘要：`AGENTS.md`
+- 可选：`git config core.hooksPath .githooks`（提交时追加暂存区 diff 统计）
 
 ## 本地预览
 
