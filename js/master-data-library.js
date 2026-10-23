@@ -194,20 +194,12 @@
     return item && item.status === 'disabled' ? 'disabled' : 'active';
   }
 
-  /** 列表展示：字段模型名称 = 所属一级「名称模型」 */
-  function fieldModelNameOf(item) {
-    var leaf = categoryNodeByName(item && item.category);
-    var root = level1Category(leaf);
-    if (!root || !root.name) return '—';
-    return root.name + '模型';
-  }
-
   function renderTable(list) {
     var body = document.getElementById('libTableBody');
     if (!body) return;
     if (!list.length) {
       var emptyText = hasActiveQuery() ? '暂无符合条件的商品' : '该分类下暂无商品';
-      body.innerHTML = '<tr><td class="mdl-table-empty" colspan="14">' + emptyText + '</td></tr>';
+      body.innerHTML = '<tr><td class="mdl-table-empty" colspan="13">' + emptyText + '</td></tr>';
       return;
     }
     var start = (state.page - 1) * state.pageSize;
@@ -220,7 +212,6 @@
         '<td><span class="mdl-thumb mdl-thumb--' + item.tone + '">' + escapeHtml(item.mark) + '</span></td>' +
         '<td class="mdl-table__name">' + escapeHtml(item.name) + '</td>' +
         '<td><span class="mdl-status mdl-status--' + goodsStatus(item) + '">' + (goodsStatus(item) === 'disabled' ? '停用' : '启用') + '</span></td>' +
-        '<td>' + escapeHtml(fieldModelNameOf(item)) + '</td>' +
         '<td>' + escapeHtml(item.brand) + '</td>' +
         '<td>' + formatPrice(item.purchasePrice) + '</td>' +
         '<td>' + escapeHtml(item.purchaseUnit) + '</td>' +
