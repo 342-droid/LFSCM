@@ -4,7 +4,7 @@
 
 .master-data-library {
   display: grid;
-  grid-template-columns: 800px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
   height: calc(100vh - 132px);
   min-height: 0;
   overflow: hidden;
@@ -12,7 +12,7 @@
 
 .master-data-library__cats {
   display: grid;
-  grid-template-columns: repeat(4, 200px);
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   border-right: 1px solid #f0f0f0;
@@ -37,13 +37,6 @@
 
 .master-data-library__cats .product-category-cascade__col {
   min-height: 0;
-}
-
-.master-data-library__cats .product-category-cascade__col[data-level="3"] {
-  border-right: 1px solid #f0f0f0;
-}
-
-.master-data-library__cats .product-category-cascade__col[data-level="4"] {
   border-right: none;
 }
 
@@ -162,6 +155,14 @@
   white-space: nowrap;
 }
 
+.mdl-query__field--cascade {
+  align-items: flex-start;
+}
+
+.mdl-query__field--cascade > span {
+  line-height: 32px;
+}
+
 .mdl-query__field input,
 .mdl-query__field select {
   width: 168px;
@@ -183,6 +184,64 @@
 .mdl-query__field select:focus {
   outline: none;
   border-color: #2f6bff;
+}
+
+/* 查询区商品分类级联（复用 region-cascader 视觉） */
+.mdl-query-cat {
+  width: 280px;
+}
+
+.mdl-query-cat .region-cascader-trigger {
+  min-height: 32px;
+  padding: 0 56px 0 10px;
+  border-color: #dcdfe6;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.mdl-query-cat .region-cascader-trigger:hover,
+.mdl-query-cat.region-cascader-wrapper.is-open .region-cascader-trigger {
+  border-color: #2f6bff;
+  box-shadow: 0 0 0 1px rgba(47, 107, 255, 0.2);
+}
+
+.mdl-query-cat .region-cascader-value {
+  font-size: 13px;
+  color: #303133;
+}
+
+.mdl-query-cat .region-cascader-value.is-placeholder {
+  color: #c0c4cc;
+}
+
+.mdl-query-cat.is-disabled .region-cascader-trigger {
+  background: #f5f7fa;
+  color: #c0c4cc;
+  cursor: not-allowed;
+}
+
+.mdl-query-cat .region-cascader-item:hover,
+.mdl-query-cat .region-cascader-item.is-active {
+  background: #eef3ff;
+  color: #2f6bff;
+}
+
+.mdl-query-cat .region-cascader-item.is-active .region-cascader-item-arrow {
+  color: #2f6bff;
+}
+
+.mdl-query .region-cascader-wrapper.is-open {
+  z-index: 5200;
+}
+
+/* display:flex 会盖掉原生 [hidden]，需显式收起 */
+.mdl-query-cat .region-cascader-panel,
+.mdl-query-cat .region-cascader-panel[hidden] {
+  display: none !important;
+}
+
+.mdl-query-cat.is-open .region-cascader-panel {
+  display: flex !important;
 }
 
 .mdl-query__actions {
@@ -306,12 +365,114 @@
   background: #ffffff;
   color: #303133;
   font-size: 13px;
+  box-sizing: border-box;
+}
+
+.mdl-goods-field__control--area {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  line-height: 1.5;
+  resize: vertical;
 }
 
 .mdl-goods-field__control.is-readonly {
   background: #f5f7fa;
   color: #606266;
   cursor: not-allowed;
+}
+
+.mdl-goods-field__tip {
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.mdl-goods-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-height: 32px;
+  align-items: center;
+}
+
+.mdl-goods-choice__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #303133;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mdl-goods-choice__item input {
+  margin: 0;
+}
+
+.mdl-goods-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mdl-goods-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.mdl-goods-switch__track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: #dcdfe6;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.mdl-goods-switch__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease;
+}
+
+.mdl-goods-switch input:checked + .mdl-goods-switch__track {
+  background: #409eff;
+}
+
+.mdl-goods-switch input:checked + .mdl-goods-switch__track::after {
+  transform: translateX(18px);
+}
+
+.mdl-goods-switch__text {
+  color: #606266;
+  font-size: 13px;
+}
+
+.mdl-ext-group + .mdl-ext-group {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.mdl-ext-group__title {
+  margin: 0 0 10px;
+  color: #303133;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .mdl-unit-cards {
@@ -697,6 +858,19 @@
   cursor: pointer;
 }
 
+.mdl-filter-group + .mdl-filter-group {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.mdl-filter-group__title {
+  margin: 0 0 8px;
+  color: #303133;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .mdl-filter-attr {
   padding: 8px 0;
   border-bottom: 1px solid #f5f5f5;
@@ -731,16 +905,52 @@
 }
 
 .mdl-filter-row__name {
-  flex: 0 0 88px;
+  flex: 0 0 108px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   padding-top: 4px;
   color: #606266;
   font-size: 13px;
+}
+
+.mdl-filter-row__type {
+  color: #909399;
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .mdl-filter-row__values {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+}
+
+.mdl-filter-input {
+  width: min(100%, 280px);
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #303133;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.mdl-filter-input--area {
+  height: auto;
+  min-height: 52px;
+  padding: 6px 10px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+select.mdl-filter-input {
+  cursor: pointer;
 }
 
 .mdl-filter-value {
@@ -1086,6 +1296,34 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px 24px;
+}
+
+.mdl-detail-ext {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #ebeef5;
+}
+
+.mdl-detail-ext__title {
+  margin: 0 0 12px;
+  color: #303133;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mdl-detail-ext-group + .mdl-detail-ext-group {
+  margin-top: 16px;
+}
+
+.mdl-detail-ext-group__title {
+  margin: 0 0 10px;
+  color: #606266;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mdl-detail-pane[data-lib-detail-pane="info"] .mdl-detail-units {
+  margin-top: 20px;
 }
 
 .mdl-detail-units {

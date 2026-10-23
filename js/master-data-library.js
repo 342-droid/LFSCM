@@ -5,11 +5,11 @@
   var store = window.MasterDataCategoryStore;
   if (!store) return;
 
-  function attrPick(name, value, parentName, parentValue) {
-    return { name: name, value: value, parentName: parentName || '', parentValue: parentValue || '' };
+  function attrPick(name, value) {
+    return { name: name, value: value };
   }
 
-  /** 商品属性取值与商品分类种子一致，含继承属性和二级属性 */
+  /** 扩展字段取值与一级字段模型种子一致 */
   var PRODUCTS = [
     { category: '五花肉', spuKey: 'pork-xlb', sku: '4134001', barcode: '6974562300012', barcodeCount: 3, name: '生物发面猪肉小笼包 50g 100个/包', brand: '冷丰优选', purchasePrice: 18.8, purchaseQty: 12800, purchaseUnit: '箱', minQty: 25600000, minUnit: '个', specQty: 256000, specUnit: '包', packQty: 12800, packUnit: '箱', amount: 240640, tone: 'blue', mark: '笼', attrs: [attrPick('储存条件', '冷藏'), attrPick('配送时效', '当日达'), attrPick('储存温度', '0-4℃'), attrPick('分割', '切片'), attrPick('肥瘦', '五花'), attrPick('厚度', '薄'), attrPick('部位', '前五花')] },
     { category: '里脊', spuKey: 'beef-xlb', sku: '4134001', barcode: '6974562300013', barcodeCount: 3, name: '生物发面牛肉小笼包 50g 100个/包', brand: '冷丰优选', purchasePrice: 18.8, purchaseQty: 6200, purchaseUnit: '箱', minQty: 12400000, minUnit: '个', specQty: 124000, specUnit: '包', packQty: 6200, packUnit: '箱', amount: 116560, tone: 'orange', mark: '笼', attrs: [attrPick('储存条件', '冷冻'), attrPick('配送时效', '次日达'), attrPick('储存温度', '冷冻'), attrPick('分割', '整块'), attrPick('肥瘦', '瘦'), attrPick('厚度', '薄片'), attrPick('是否腌制', '鲜肉')] },
@@ -33,7 +33,9 @@
     goodsEditing: null,
     goodsSpecIndex: null,
     goodsCategoryId: null,
-    query: { spu: '', sku: '', barcode: '', name: '', brand: '', status: '' },
+    query: { spu: '', sku: '', barcode: '', name: '', brand: '', status: '', categoryId: '' },
+    /** 查询区商品分类级联草稿（点查询后写入 query.categoryId） */
+    queryCat: { l2: '', l3: '', l4: '' },
     page: 1,
     pageSize: 20
   };
@@ -67,7 +69,17 @@
   }
 
   function focusCategory() {
-    return store.getNode(state.selectedL4 || state.selectedL3 || state.selectedL2 || state.selectedL1);
+    return store.getNode(state.selectedL1);
+  }
+
+  /** 某一级下全部四级分类（用于新增时选择挂载分类） */
+  function leafCategoriesUnder(l1Id) {
+    if (!l1Id) return [];
+    return store.getCategories().filter(function (node) {
+      return node.level === 4 && node.path_ids && node.path_ids[0] === l1Id;
+    }).sort(function (a, b) {
+      return String(a.path || a.name).localeCompare(String(b.path || b.name), 'zh');
+    });
   }
 
   function renderStatusTag(status) {
@@ -111,9 +123,16 @@
 
   function categoryIdsInScope() {
     var focus = focusCategory();
-    if (!focus) return null;
+    var queryCatId = state.query && state.query.categoryId;
+    var scopeNode = queryCatId ? store.getNode(queryCatId) : focus;
+    if (!scopeNode) return null;
+    // 查询分类须落在当前一级范围内
+    if (focus && queryCatId) {
+      var path = scopeNode.path_ids || [];
+      if (path.indexOf(focus.id) < 0 && scopeNode.id !== focus.id) return {};
+    }
     var ids = {};
-    store.collectDescendantIds(focus.id).forEach(function (id) { ids[id] = true; });
+    store.collectDescendantIds(scopeNode.id).forEach(function (id) { ids[id] = true; });
     return ids;
   }
 
@@ -145,31 +164,16 @@
 
   function renderCategories() {
     var l1 = store.getByLevel(1);
-    var l2 = state.selectedL1 ? store.getChildren(state.selectedL1) : [];
-    var l3 = state.selectedL2 ? store.getChildren(state.selectedL2) : [];
-    var l4 = state.selectedL3 ? store.getChildren(state.selectedL3) : [];
     renderColumn(document.getElementById('catListL1'), l1, state.selectedL1, 1, true, '暂无一级分类');
-    renderColumn(document.getElementById('catListL2'), l2, state.selectedL2, 2, !!state.selectedL1, state.selectedL1 ? '该一级下暂无二级分类' : '请先选择一级分类');
-    renderColumn(document.getElementById('catListL3'), l3, state.selectedL3, 3, !!state.selectedL2, state.selectedL2 ? '该二级下暂无三级分类' : '请先选择二级分类');
-    renderColumn(document.getElementById('catListL4'), l4, state.selectedL4, 4, !!state.selectedL3, state.selectedL3 ? '该三级下暂无四级分类' : '请先选择三级分类');
-    var l1Node = state.selectedL1 ? store.getNode(state.selectedL1) : null;
-    var l2Node = state.selectedL2 ? store.getNode(state.selectedL2) : null;
-    var l3Node = state.selectedL3 ? store.getNode(state.selectedL3) : null;
-    var hintL2 = document.getElementById('catHintL2');
-    var hintL3 = document.getElementById('catHintL3');
-    var hintL4 = document.getElementById('catHintL4');
-    if (hintL2) hintL2.textContent = l1Node ? '所属：' + l1Node.name : '请先选择一级分类';
-    if (hintL3) hintL3.textContent = l2Node ? '所属：' + (l1Node ? l1Node.name + ' / ' : '') + l2Node.name : '请先选择二级分类';
-    if (hintL4) hintL4.textContent = l3Node ? '所属：' + [l1Node && l1Node.name, l2Node && l2Node.name, l3Node.name].filter(Boolean).join(' / ') : '请先选择三级分类';
     syncAddGoodsBtn();
   }
 
   function syncAddGoodsBtn() {
     var btn = document.getElementById('libAddGoodsBtn');
     if (!btn) return;
-    var enabled = !!state.selectedL4;
+    var enabled = !!state.selectedL1;
     btn.disabled = !enabled;
-    btn.title = enabled ? '添加商品' : '请先选择四级分类';
+    btn.title = enabled ? '添加商品' : '请先选择一级分类';
   }
 
   function renderStats(list) {
@@ -190,12 +194,20 @@
     return item && item.status === 'disabled' ? 'disabled' : 'active';
   }
 
+  /** 列表展示：字段模型名称 = 所属一级「名称模型」 */
+  function fieldModelNameOf(item) {
+    var leaf = categoryNodeByName(item && item.category);
+    var root = level1Category(leaf);
+    if (!root || !root.name) return '—';
+    return root.name + '模型';
+  }
+
   function renderTable(list) {
     var body = document.getElementById('libTableBody');
     if (!body) return;
     if (!list.length) {
       var emptyText = hasActiveQuery() ? '暂无符合条件的商品' : '该分类下暂无商品';
-      body.innerHTML = '<tr><td class="mdl-table-empty" colspan="13">' + emptyText + '</td></tr>';
+      body.innerHTML = '<tr><td class="mdl-table-empty" colspan="14">' + emptyText + '</td></tr>';
       return;
     }
     var start = (state.page - 1) * state.pageSize;
@@ -208,6 +220,7 @@
         '<td><span class="mdl-thumb mdl-thumb--' + item.tone + '">' + escapeHtml(item.mark) + '</span></td>' +
         '<td class="mdl-table__name">' + escapeHtml(item.name) + '</td>' +
         '<td><span class="mdl-status mdl-status--' + goodsStatus(item) + '">' + (goodsStatus(item) === 'disabled' ? '停用' : '启用') + '</span></td>' +
+        '<td>' + escapeHtml(fieldModelNameOf(item)) + '</td>' +
         '<td>' + escapeHtml(item.brand) + '</td>' +
         '<td>' + formatPrice(item.purchasePrice) + '</td>' +
         '<td>' + escapeHtml(item.purchaseUnit) + '</td>' +
@@ -229,7 +242,7 @@
 
   function hasActiveQuery() {
     var query = state.query || {};
-    return !!(query.spu || query.sku || query.barcode || query.name || query.brand || query.status || activeFilters().length);
+    return !!(query.spu || query.sku || query.barcode || query.name || query.brand || query.status || query.categoryId || activeFilters().length);
   }
 
   function matchesQuery(item) {
@@ -247,6 +260,20 @@
     return true;
   }
 
+  function queryCatDeepestId() {
+    return state.queryCat.l4 || state.queryCat.l3 || state.queryCat.l2 || '';
+  }
+
+  function queryCatDisplayPath() {
+    var parts = [];
+    [state.queryCat.l2, state.queryCat.l3, state.queryCat.l4].forEach(function (id) {
+      if (!id) return;
+      var node = store.getNode(id);
+      if (node) parts.push(node.name);
+    });
+    return parts.join(' / ');
+  }
+
   function readQueryForm() {
     function valueOf(id) {
       var el = document.getElementById(id);
@@ -258,7 +285,8 @@
       barcode: valueOf('libQueryBarcode'),
       name: valueOf('libQueryName'),
       brand: valueOf('libQueryBrand'),
-      status: valueOf('libQueryStatus')
+      status: valueOf('libQueryStatus'),
+      categoryId: queryCatDeepestId()
     };
   }
 
@@ -273,32 +301,172 @@
       var el = document.getElementById(id);
       if (el) el.value = '';
     });
-    state.query = { spu: '', sku: '', barcode: '', name: '', brand: '', status: '' };
+    state.queryCat = { l2: '', l3: '', l4: '' };
+    state.query = { spu: '', sku: '', barcode: '', name: '', brand: '', status: '', categoryId: '' };
+    syncQueryCategoryCascader();
     state.page = 1;
     renderLibrary();
   }
 
+  function closeQueryCategoryPanel() {
+    var wrap = document.getElementById('libQueryCategoryWrap');
+    var panel = document.getElementById('libQueryCategoryPanel');
+    if (wrap) wrap.classList.remove('is-open');
+    if (panel) {
+      panel.hidden = true;
+      panel.setAttribute('hidden', '');
+    }
+  }
+
+  function openQueryCategoryPanel() {
+    var wrap = document.getElementById('libQueryCategoryWrap');
+    var panel = document.getElementById('libQueryCategoryPanel');
+    if (!wrap || !panel) return;
+    renderQueryCategoryPanel();
+    wrap.classList.add('is-open');
+    panel.hidden = false;
+    panel.removeAttribute('hidden');
+  }
+
+  function syncQueryCategoryTrigger() {
+    var wrap = document.getElementById('libQueryCategoryWrap');
+    var valueEl = document.getElementById('libQueryCategoryValue');
+    var cascader = document.getElementById('libQueryCategoryInner');
+    if (!wrap || !valueEl || !cascader) return;
+    var enabled = !!state.selectedL1;
+    wrap.classList.toggle('is-disabled', !enabled);
+    var path = queryCatDisplayPath();
+    if (!enabled) {
+      valueEl.textContent = '请先选择一级分类';
+      valueEl.classList.add('is-placeholder');
+      cascader.classList.remove('has-value');
+      closeQueryCategoryPanel();
+      return;
+    }
+    if (path) {
+      valueEl.textContent = path;
+      valueEl.classList.remove('is-placeholder');
+      cascader.classList.add('has-value');
+    } else {
+      valueEl.textContent = '请选择二 / 三 / 四级分类';
+      valueEl.classList.add('is-placeholder');
+      cascader.classList.remove('has-value');
+    }
+  }
+
+  function renderQueryCategoryCol(level, parentId, selectedId) {
+    var nodes = parentId ? store.getChildren(parentId) : [];
+    if (!nodes.length) {
+      return '<div class="region-cascader-item" style="cursor:default;color:#909399">暂无</div>';
+    }
+    return nodes.map(function (node) {
+      var active = node.id === selectedId ? ' is-active' : '';
+      var arrow = level < 4 ? '<span class="region-cascader-item-arrow">›</span>' : '';
+      return '<div class="region-cascader-item' + active + '" data-query-cat-level="' + level + '" data-query-cat-id="' +
+        escapeHtml(node.id) + '"><span>' + escapeHtml(node.name) + '</span>' + arrow + '</div>';
+    }).join('');
+  }
+
+  function renderQueryCategoryPanel() {
+    var col2 = document.getElementById('libQueryCatCol2');
+    var col3 = document.getElementById('libQueryCatCol3');
+    var col4 = document.getElementById('libQueryCatCol4');
+    if (!col2 || !col3 || !col4) return;
+    var l1 = state.selectedL1;
+    col2.innerHTML = l1 ? renderQueryCategoryCol(2, l1, state.queryCat.l2) : '';
+    col3.innerHTML = state.queryCat.l2 ? renderQueryCategoryCol(3, state.queryCat.l2, state.queryCat.l3) : '';
+    col4.innerHTML = state.queryCat.l3 ? renderQueryCategoryCol(4, state.queryCat.l3, state.queryCat.l4) : '';
+  }
+
+  function syncQueryCategoryCascader() {
+    syncQueryCategoryTrigger();
+    renderQueryCategoryPanel();
+  }
+
+  function mountQueryCategoryCascader() {
+    var mount = document.getElementById('libQueryCategoryMount');
+    if (!mount || mount.getAttribute('data-ready') === '1') {
+      syncQueryCategoryCascader();
+      return;
+    }
+    mount.setAttribute('data-ready', '1');
+    mount.innerHTML =
+      '<div class="region-cascader-wrapper mdl-query-cat" id="libQueryCategoryWrap">' +
+      '<div class="region-cascader" id="libQueryCategoryInner">' +
+      '<div class="region-cascader-trigger" id="libQueryCategoryTrigger" role="button" tabindex="0">' +
+      '<span class="region-cascader-value is-placeholder" id="libQueryCategoryValue">请先选择一级分类</span>' +
+      '<span class="region-cascader-clear" id="libQueryCategoryClear" title="清除">×</span>' +
+      '<span class="region-cascader-arrow">▼</span>' +
+      '</div>' +
+      '<div class="region-cascader-panel" id="libQueryCategoryPanel" hidden>' +
+      '<div class="region-cascader-col" id="libQueryCatCol2"></div>' +
+      '<div class="region-cascader-col" id="libQueryCatCol3"></div>' +
+      '<div class="region-cascader-col" id="libQueryCatCol4"></div>' +
+      '</div></div></div>';
+
+    var wrap = document.getElementById('libQueryCategoryWrap');
+    var trigger = document.getElementById('libQueryCategoryTrigger');
+    var panel = document.getElementById('libQueryCategoryPanel');
+    var clearBtn = document.getElementById('libQueryCategoryClear');
+
+    trigger.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (!state.selectedL1) {
+        if (typeof showToast === 'function') showToast('请先选择一级分类', 'warning');
+        return;
+      }
+      if (wrap.classList.contains('is-open')) closeQueryCategoryPanel();
+      else openQueryCategoryPanel();
+    });
+
+    clearBtn.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      state.queryCat = { l2: '', l3: '', l4: '' };
+      syncQueryCategoryCascader();
+      closeQueryCategoryPanel();
+    });
+
+    panel.addEventListener('click', function (ev) {
+      var item = ev.target.closest('[data-query-cat-id]');
+      if (!item) return;
+      ev.stopPropagation();
+      var level = parseInt(item.getAttribute('data-query-cat-level'), 10);
+      var id = item.getAttribute('data-query-cat-id') || '';
+      if (level === 2) {
+        state.queryCat = { l2: id, l3: '', l4: '' };
+      } else if (level === 3) {
+        state.queryCat.l3 = id;
+        state.queryCat.l4 = '';
+      } else if (level === 4) {
+        state.queryCat.l4 = id;
+        syncQueryCategoryTrigger();
+        renderQueryCategoryPanel();
+        closeQueryCategoryPanel();
+        return;
+      }
+      syncQueryCategoryTrigger();
+      renderQueryCategoryPanel();
+    });
+
+    document.addEventListener('click', function (ev) {
+      if (!wrap.classList.contains('is-open')) return;
+      if (wrap.contains(ev.target)) return;
+      closeQueryCategoryPanel();
+    });
+
+    syncQueryCategoryCascader();
+  }
+
   function sameFilter(left, right) {
-    return left.name === right.name && left.value === right.value &&
-      (left.parentName || '') === (right.parentName || '') &&
-      (left.parentValue || '') === (right.parentValue || '');
-  }
-
-  function filterGroupKey(entry) {
-    return [entry.parentName || '', entry.parentValue || '', entry.name].join('\u0001');
-  }
-
-  function filterLabel(entry) {
-    if (entry.parentValue) return entry.name + '（' + entry.parentValue + '）';
-    return entry.name;
+    return left.name === right.name && left.value === right.value;
   }
 
   function readFilterEntry(el) {
     return {
       name: el.getAttribute('data-filter-name') || '',
-      value: el.getAttribute('data-filter-value') || '',
-      parentName: el.getAttribute('data-filter-parent-name') || '',
-      parentValue: el.getAttribute('data-filter-parent-value') || ''
+      value: el.getAttribute('data-filter-value') || ''
     };
   }
 
@@ -320,107 +488,72 @@
     return selectionList().some(function (item) { return sameFilter(item, entry); });
   }
 
-  function dropBranch(list, name, value) {
-    var removed = [];
-    var kept = [];
-    list.forEach(function (item) {
-      if (item.parentName === name && item.parentValue === value) removed.push(item);
-      else kept.push(item);
-    });
-    removed.forEach(function (item) {
-      kept = dropBranch(kept, item.name, item.value);
-    });
-    return kept;
-  }
-
-  function ancestorEntries(el) {
-    var list = [];
-    var box = el.closest('.mdl-filter-branch__children');
-    while (box) {
-      var branch = box.parentElement;
-      var headBtn = branch && branch.querySelector(':scope > .mdl-filter-branch__head [data-filter-value]');
-      if (headBtn) list.unshift(readFilterEntry(headBtn));
-      box = branch && branch.parentElement ? branch.parentElement.closest('.mdl-filter-branch__children') : null;
-    }
-    return list;
-  }
-
-  function toggleFilter(entry, ancestors) {
+  function toggleFilter(entry) {
     var next = selectionList().slice();
     var index = -1;
     next.forEach(function (item, i) {
       if (sameFilter(item, entry)) index = i;
     });
-    if (index >= 0) {
-      next.splice(index, 1);
-      next = dropBranch(next, entry.name, entry.value);
-    } else {
-      (ancestors || []).forEach(function (parent) {
-        if (!next.some(function (item) { return sameFilter(item, parent); })) next.push(parent);
-      });
-      next.push(entry);
-    }
+    if (index >= 0) next.splice(index, 1);
+    else next.push(entry);
     writeSelection(next);
   }
 
-  function toggleGoodsAttr(entry, ancestors) {
-    var next = (state.goodsDraft || []).slice();
-    var index = -1;
-    next.forEach(function (item, i) {
-      if (sameFilter(item, entry)) index = i;
+  /** 商品表单扩展字段：同名字段单选 */
+  function toggleGoodsAttr(entry) {
+    var next = (state.goodsDraft || []).filter(function (item) {
+      return item.name !== entry.name;
     });
-    if (index >= 0) {
-      next.splice(index, 1);
-      state.goodsDraft = dropBranch(next, entry.name, entry.value);
-      return;
-    }
-    var group = filterGroupKey(entry);
-    var removed = next.filter(function (item) { return filterGroupKey(item) === group; });
-    next = next.filter(function (item) { return filterGroupKey(item) !== group; });
-    removed.forEach(function (item) {
-      next = dropBranch(next, item.name, item.value);
-    });
-    (ancestors || []).forEach(function (parent) {
-      var parentGroup = filterGroupKey(parent);
-      var removedParents = next.filter(function (item) {
-        return filterGroupKey(item) === parentGroup && !sameFilter(item, parent);
-      });
-      next = next.filter(function (item) {
-        return filterGroupKey(item) !== parentGroup || sameFilter(item, parent);
-      });
-      removedParents.forEach(function (item) {
-        next = dropBranch(next, item.name, item.value);
-      });
-      if (!next.some(function (item) { return sameFilter(item, parent); })) next.push(parent);
-    });
-    if (!ancestors || !ancestors.length) {
-      var removedRoots = next.filter(function (item) {
-        return item.name === entry.name && !item.parentName && item.value !== entry.value;
-      });
-      next = next.filter(function (item) {
-        return !(item.name === entry.name && !item.parentName && item.value !== entry.value);
-      });
-      removedRoots.forEach(function (item) {
-        next = dropBranch(next, item.name, item.value);
-      });
-    }
-    next.push(entry);
+    var exists = (state.goodsDraft || []).some(function (item) { return sameFilter(item, entry); });
+    if (!exists) next.push(entry);
     state.goodsDraft = next;
   }
 
   function productHasAttr(item, entry) {
-    return (item.attrs || []).some(function (attr) { return sameFilter(attr, entry); });
+    return (item.attrs || []).some(function (attr) {
+      if (!attr || attr.name !== entry.name) return false;
+      var attrVal = String(attr.value || '');
+      var filterVal = String(entry.value || '');
+      if (!filterVal) return false;
+      if (sameFilter(attr, entry)) return true;
+      // 多选值用顿号/逗号拼接，筛选单项时按包含匹配
+      var parts = attrVal.split(/[、,，]/).map(function (part) {
+        return part.trim();
+      }).filter(Boolean);
+      if (parts.indexOf(filterVal) >= 0) return true;
+      // 文本 / 数字 / 日期等自由输入：包含匹配
+      if (entry.match === 'contains') return attrVal.indexOf(filterVal) >= 0;
+      return false;
+    });
+  }
+
+  function filterDraftEntriesForName(name) {
+    return selectionList().filter(function (item) { return item.name === name; });
+  }
+
+  function filterDraftTextValue(name) {
+    var items = filterDraftEntriesForName(name);
+    return items.length ? String(items[0].value || '') : '';
+  }
+
+  /** 自由输入类筛选：同名字段只保留一条 */
+  function setFilterText(name, value, match) {
+    var next = selectionList().filter(function (item) { return item.name !== name; });
+    var text = String(value == null ? '' : value).trim();
+    if (text) {
+      next.push({ name: name, value: text, match: match || 'contains' });
+    }
+    writeSelection(next);
   }
 
   function matchesFilters(item) {
     var groups = {};
     activeFilters().forEach(function (entry) {
-      var key = filterGroupKey(entry);
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(entry);
+      if (!groups[entry.name]) groups[entry.name] = [];
+      groups[entry.name].push(entry);
     });
-    return Object.keys(groups).every(function (key) {
-      return groups[key].some(function (entry) { return productHasAttr(item, entry); });
+    return Object.keys(groups).every(function (name) {
+      return groups[name].some(function (entry) { return productHasAttr(item, entry); });
     });
   }
 
@@ -437,8 +570,8 @@
     chips.hidden = false;
     clearBtn.hidden = false;
     chips.innerHTML = activeFilters().map(function (item) {
-      return '<span class="mdl-filter-chip">属性：' + escapeHtml(filterLabel(item)) + ' / ' + escapeHtml(item.value) +
-        '<button type="button" data-filter-remove-name="' + escapeHtml(item.name) + '" data-filter-remove-value="' + escapeHtml(item.value) + '" data-filter-remove-parent-name="' + escapeHtml(item.parentName || '') + '" data-filter-remove-parent-value="' + escapeHtml(item.parentValue || '') + '" aria-label="移除筛选">×</button></span>';
+      return '<span class="mdl-filter-chip">字段：' + escapeHtml(item.name) + ' / ' + escapeHtml(item.value) +
+        '<button type="button" data-filter-remove-name="' + escapeHtml(item.name) + '" data-filter-remove-value="' + escapeHtml(item.value) + '" aria-label="移除筛选">×</button></span>';
     }).join('');
   }
 
@@ -509,10 +642,51 @@
     var body = document.getElementById('libFilterModalBody');
     var focus = focusCategory();
     if (!body || !focus) return;
-    var rows = store.listAttributeRows(focus.id);
-    body.innerHTML = rows.length
-      ? rows.map(function (row) { return renderFilterAttribute(row.attr); }).join('')
-      : '<div class="mdl-filter-empty">该分类暂无商品属性</div>';
+    var resolved = resolveGoodsFieldModel(focus);
+    var sections = groupExtFields(resolved);
+    if (!sections.length) {
+      body.innerHTML = '<div class="mdl-filter-empty">该分类所属一级暂无扩展字段</div>';
+      return;
+    }
+    body.innerHTML = sections.map(function (section) {
+      return '<div class="mdl-filter-group">' +
+        '<h4 class="mdl-filter-group__title">' + escapeHtml(section.name) + '</h4>' +
+        section.fields.map(function (field) { return renderFilterAttribute(field); }).join('') +
+        '</div>';
+    }).join('');
+  }
+
+  /** 从弹窗控件同步筛选草稿（按类型） */
+  function syncFilterControls(root) {
+    var scope = root || document.getElementById('libFilterModalBody');
+    if (!scope) return;
+    scope.querySelectorAll('[data-filter-control]').forEach(function (el) {
+      var name = el.getAttribute('data-filter-name') || '';
+      var kind = el.getAttribute('data-filter-control') || '';
+      if (!name) return;
+      if (kind === 'select' || kind === 'text' || kind === 'date' || kind === 'number') {
+        var match = (kind === 'text' || kind === 'number') ? 'contains' : '';
+        setFilterText(name, el.value, match);
+        return;
+      }
+      if (kind === 'boolean') {
+        setFilterText(name, el.checked ? '是' : '', '');
+        return;
+      }
+      if (kind === 'radio') {
+        var checked = el.querySelector('input[type="radio"]:checked');
+        setFilterText(name, checked ? checked.value : '', '');
+        return;
+      }
+      if (kind === 'multi') {
+        var next = selectionList().filter(function (item) { return item.name !== name; });
+        el.querySelectorAll('input[type="checkbox"]:checked').forEach(function (box) {
+          var value = String(box.value || '').trim();
+          if (value) next.push({ name: name, value: value });
+        });
+        writeSelection(next);
+      }
+    });
   }
 
   function closeGoodsModal() {
@@ -665,19 +839,47 @@
       if (!pair[1]) return;
       tags += '<span class="mdl-detail-tag">' + escapeHtml(pair[0] + ' ' + pair[1]) + '</span>';
     });
+    var detailCategory = categoryNodeByName(item.category);
+    var detailFieldModel = resolveGoodsFieldModel(detailCategory);
+    function detailMaybe(key, label, value) {
+      var hasValue = value != null && value !== '';
+      if (!fieldVisible(detailFieldModel, key) && !hasValue) return '';
+      return detailField(label, value);
+    }
+    var attrValueMap = {};
+    (item.attrs || []).forEach(function (attr) {
+      if (attr && attr.name) attrValueMap[attr.name] = attr.value;
+    });
+    var extSections = groupExtFields(detailFieldModel);
+    var extDetailHtml = extSections.map(function (section) {
+      var fieldsHtml = section.fields.map(function (field) {
+        return detailField(field.name, attrValueMap[field.name]);
+      }).join('');
+      if (!fieldsHtml) return '';
+      return '<div class="mdl-detail-ext-group">' +
+        '<h4 class="mdl-detail-ext-group__title">' + escapeHtml(section.name) + '</h4>' +
+        '<div class="mdl-detail-grid">' + fieldsHtml + '</div></div>';
+    }).join('');
     var infoHtml =
+      '<div class="mdl-detail-grid">' +
       detailField('SPU编码', item.spu) +
       detailField('货号', item.sku) +
       detailField('商品名称', item.name) +
       detailField('商品条码', item.barcode) +
-      detailField('保质期天数', item.shelfLife) +
+      detailMaybe('shelfLife', '保质期天数', item.shelfLife) +
       detailField('商品品牌', item.brand) +
-      detailField('经营方式', item.operateMode) +
-      detailField('是否称重', item.weigh) +
-      detailField('温层', item.tempLayer) +
+      detailMaybe('operateMode', '经营方式', item.operateMode) +
+      detailMaybe('weigh', '是否称重', item.weigh) +
+      detailMaybe('tempLayer', '温层', item.tempLayer) +
       detailField('标准采购价', item.purchasePrice == null || item.purchasePrice === '' ? '' : formatPrice(item.purchasePrice)) +
       detailField('标准采购单位', item.purchaseUnit) +
-      detailUnitSection(item);
+      '</div>' +
+      (extDetailHtml
+        ? '<div class="mdl-detail-ext"><h3 class="mdl-detail-ext__title">扩展字段</h3>' + extDetailHtml + '</div>'
+        : '') +
+      (fieldVisible(detailFieldModel, 'unitCards') || item.minUnit || item.specUnit || item.packUnit || item.minMeasureUnit
+        ? detailUnitSection(item)
+        : '');
     var copyFields = [
       ['1. 卖点', item.sellingPoint],
       ['2. 产品基本信息介绍', item.productIntro],
@@ -686,6 +888,8 @@
       ['5. 售后服务', item.afterSale],
       ['图文详情', item.graphicDetail]
     ];
+    var hasCopyValue = copyFields.some(function (field) { return field[1] != null && field[1] !== ''; });
+    var showCopyTab = fieldVisible(detailFieldModel, 'richText') || hasCopyValue;
     var copyHtml = copyFields.map(function (field) {
       return '<div class="mdl-detail-copy"><div class="mdl-detail-copy__label">' + escapeHtml(field[0]) + '</div><div class="mdl-detail-copy__value">' + escapeHtml(detailText(field[1])) + '</div></div>';
     }).join('');
@@ -707,13 +911,13 @@
       '<div class="mdl-detail-tags">' + (tags || '<span class="mdl-detail-empty">暂无标签</span>') + '</div>' +
       '<div class="mdl-detail-tabs" role="tablist">' +
       '<button type="button" class="mdl-detail-tabs__item is-active" data-lib-detail-tab="info">商品信息</button>' +
-      '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="copy">图文信息</button>' +
+      (showCopyTab ? '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="copy">图文信息</button>' : '') +
       '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="ingredient">配料表</button>' +
       '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="nutrition">营养成分</button>' +
       '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="supply">供货关系</button>' +
       '</div>' +
-      '<div class="mdl-detail-pane" data-lib-detail-pane="info"><div class="mdl-detail-grid">' + infoHtml + '</div></div>' +
-      '<div class="mdl-detail-pane" data-lib-detail-pane="copy" hidden>' + copyHtml + '</div>' +
+      '<div class="mdl-detail-pane" data-lib-detail-pane="info">' + infoHtml + '</div>' +
+      (showCopyTab ? '<div class="mdl-detail-pane" data-lib-detail-pane="copy" hidden>' + copyHtml + '</div>' : '') +
       '<div class="mdl-detail-pane" data-lib-detail-pane="ingredient" hidden></div>' +
       '<div class="mdl-detail-pane" data-lib-detail-pane="nutrition" hidden></div>' +
       '<div class="mdl-detail-pane" data-lib-detail-pane="supply" hidden></div>' +
@@ -1571,6 +1775,31 @@
     return rootId ? store.getNode(rootId) : null;
   }
 
+  function resolveGoodsFieldModel(categoryNode) {
+    if (!categoryNode) return window.MasterDataFieldModel
+      ? window.MasterDataFieldModel.resolveFieldModel(null)
+      : { systemFields: [], groups: [], fields: [], byKey: {} };
+    if (store.resolveFieldModel) return store.resolveFieldModel(categoryNode.id);
+    var FieldModel = window.MasterDataFieldModel;
+    return FieldModel
+      ? FieldModel.resolveFieldModel(null)
+      : { systemFields: [], groups: [], fields: [], byKey: {} };
+  }
+
+  function fieldVisible(resolved, key) {
+    var FieldModel = window.MasterDataFieldModel;
+    if (FieldModel && FieldModel.isSystemFieldVisible) return FieldModel.isSystemFieldVisible(resolved, key);
+    var item = resolved && resolved.byKey && resolved.byKey[key];
+    return !item || item.visible !== false;
+  }
+
+  function fieldRequired(resolved, key) {
+    var FieldModel = window.MasterDataFieldModel;
+    if (FieldModel && FieldModel.isSystemFieldRequired) return FieldModel.isSystemFieldRequired(resolved, key);
+    var item = resolved && resolved.byKey && resolved.byKey[key];
+    return !!(item && item.visible && item.required);
+  }
+
   function skuTaken(sku) {
     var usedByProduct = PRODUCTS.some(function (item) {
       return String(item.sku || '') === sku;
@@ -1702,7 +1931,7 @@
       var node = categoryNodeByName(item.category);
       if (node) return node.id;
     }
-    return state.selectedL4 || null;
+    return state.goodsCategoryId || state.selectedL1 || null;
   }
 
   function goodsUnitsForScope(selected, item) {
@@ -1838,14 +2067,252 @@
       '</label>';
   }
 
+  function extFieldDomId(field) {
+    var key = (field && (field.key || field.id || field.name)) || 'ext';
+    return 'libExtField_' + String(key).replace(/[^\w\-]/g, '_');
+  }
+
+  function splitMultiValues(text) {
+    return String(text == null ? '' : text).split(/[、,，]/).map(function (part) {
+      return part.trim();
+    }).filter(Boolean);
+  }
+
+  function renderExtFieldControl(field, currentValue) {
+    var id = extFieldDomId(field);
+    var type = field.type || 'select';
+    var required = !!field.required;
+    var tip = field.tip || '';
+    var value = currentValue == null ? '' : String(currentValue);
+    var options = fieldOptionList(field);
+    var control = '';
+    var useForAttr = true;
+    if (type === 'select') {
+      control = '<select class="mdl-goods-field__control" id="' + id + '" data-ext-field-name="' + escapeHtml(field.name) + '"' +
+        (required ? ' required' : '') + '>' +
+        '<option value="">请选择</option>' +
+        options.map(function (option) {
+          return '<option value="' + escapeHtml(option) + '"' + (option === value ? ' selected' : '') + '>' +
+            escapeHtml(option) + '</option>';
+        }).join('') +
+        '</select>';
+    } else if (type === 'radio') {
+      useForAttr = false;
+      control = '<div class="mdl-goods-choice" id="' + id + '" data-ext-field-name="' + escapeHtml(field.name) + '" role="radiogroup">' +
+        options.map(function (option, index) {
+          var optId = id + '_' + index;
+          return '<label class="mdl-goods-choice__item" for="' + optId + '">' +
+            '<input type="radio" id="' + optId + '" name="' + id + '" value="' + escapeHtml(option) + '"' +
+            (option === value ? ' checked' : '') + '>' +
+            '<span>' + escapeHtml(option) + '</span></label>';
+        }).join('') +
+        '</div>';
+    } else if (type === 'multiSelect') {
+      useForAttr = false;
+      var selected = splitMultiValues(value);
+      control = '<div class="mdl-goods-choice" id="' + id + '" data-ext-field-name="' + escapeHtml(field.name) + '" data-ext-multi="1">' +
+        options.map(function (option, index) {
+          var optId = id + '_' + index;
+          var checked = selected.indexOf(option) >= 0 ? ' checked' : '';
+          return '<label class="mdl-goods-choice__item" for="' + optId + '">' +
+            '<input type="checkbox" id="' + optId + '" value="' + escapeHtml(option) + '"' + checked + '>' +
+            '<span>' + escapeHtml(option) + '</span></label>';
+        }).join('') +
+        '</div>';
+    } else if (type === 'boolean') {
+      useForAttr = false;
+      var on = value === '是' || value === 'true' || value === '1';
+      control = '<label class="mdl-goods-switch" for="' + id + '">' +
+        '<input id="' + id + '" type="checkbox" data-ext-field-name="' + escapeHtml(field.name) + '"' + (on ? ' checked' : '') + '>' +
+        '<span class="mdl-goods-switch__track" aria-hidden="true"></span>' +
+        '<span class="mdl-goods-switch__text">' + (on ? '是' : '否') + '</span></label>';
+    } else if (type === 'textarea') {
+      control = '<textarea class="mdl-goods-field__control mdl-goods-field__control--area" id="' + id +
+        '" data-ext-field-name="' + escapeHtml(field.name) + '" rows="3" placeholder="' +
+        escapeHtml(tip || '请输入') + '"' + (required ? ' required' : '') + '>' + escapeHtml(value) + '</textarea>';
+    } else if (type === 'integer') {
+      control = '<input class="mdl-goods-field__control" id="' + id + '" type="number" step="1" inputmode="numeric" data-ext-field-name="' +
+        escapeHtml(field.name) + '" placeholder="' + escapeHtml(tip || '请输入整数') + '" value="' + escapeHtml(value) + '"' +
+        (required ? ' required' : '') + '>';
+    } else if (type === 'number') {
+      control = '<input class="mdl-goods-field__control" id="' + id + '" type="number" step="any" data-ext-field-name="' +
+        escapeHtml(field.name) + '" placeholder="' + escapeHtml(tip || '请输入') + '" value="' + escapeHtml(value) + '"' +
+        (required ? ' required' : '') + '>';
+    } else if (type === 'date') {
+      control = '<input class="mdl-goods-field__control" id="' + id + '" type="date" data-ext-field-name="' +
+        escapeHtml(field.name) + '" value="' + escapeHtml(value) + '"' + (required ? ' required' : '') + '>';
+    } else {
+      control = '<input class="mdl-goods-field__control" id="' + id + '" type="text" data-ext-field-name="' +
+        escapeHtml(field.name) + '" placeholder="' + escapeHtml(tip || '请输入') + '" value="' + escapeHtml(value) + '"' +
+        (required ? ' required' : '') + '>';
+    }
+    var tipHtml = tip ? '<span class="mdl-goods-field__tip">' + escapeHtml(tip) + '</span>' : '';
+    if (useForAttr) {
+      return goodsField(
+        id,
+        (required ? '<i>*</i>' : '') + escapeHtml(field.name),
+        control + tipHtml
+      );
+    }
+    return '<div class="mdl-goods-field">' +
+      '<span class="mdl-goods-field__label">' + (required ? '<i>*</i>' : '') + escapeHtml(field.name) + '</span>' +
+      control + tipHtml +
+      '</div>';
+  }
+
+  function readExtFieldValue(field) {
+    var id = extFieldDomId(field);
+    var type = field.type || 'select';
+    if (type === 'radio') {
+      var checkedRadio = document.querySelector('input[name="' + id + '"]:checked');
+      return checkedRadio ? String(checkedRadio.value || '').trim() : '';
+    }
+    if (type === 'multiSelect') {
+      var box = document.getElementById(id);
+      if (!box) return '';
+      var picked = [];
+      box.querySelectorAll('input[type="checkbox"]:checked').forEach(function (el) {
+        var text = String(el.value || '').trim();
+        if (text) picked.push(text);
+      });
+      return picked.join('、');
+    }
+    if (type === 'boolean') {
+      var switchEl = document.getElementById(id);
+      if (!switchEl) return '';
+      return switchEl.checked ? '是' : '否';
+    }
+    return readGoodsValue(id);
+  }
+
+  function isExtFieldEmpty(field, value) {
+    var type = field.type || 'select';
+    if (type === 'boolean') return false;
+    return value === '' || value == null;
+  }
+
+  function groupExtFields(resolved) {
+    var groups = ((resolved && resolved.groups) || []).slice().sort(function (a, b) {
+      return (parseInt(a.sort, 10) || 0) - (parseInt(b.sort, 10) || 0);
+    });
+    var fields = ((resolved && resolved.fields) || []).slice().sort(function (a, b) {
+      return (parseInt(a.sort, 10) || 0) - (parseInt(b.sort, 10) || 0);
+    });
+    var FieldModel = window.MasterDataFieldModel;
+    fields = fields.map(function (field) {
+      return FieldModel && FieldModel.normalizeExtensionField
+        ? FieldModel.normalizeExtensionField(field)
+        : field;
+    });
+    var buckets = {};
+    groups.forEach(function (group) { buckets[group.id] = []; });
+    var orphans = [];
+    fields.forEach(function (field) {
+      if (field.category_id && buckets[field.category_id]) buckets[field.category_id].push(field);
+      else orphans.push(field);
+    });
+    var sections = groups.map(function (group) {
+      return { name: group.name, fields: buckets[group.id] || [] };
+    }).filter(function (section) { return section.fields.length; });
+    if (orphans.length) sections.push({ name: '未分类', fields: orphans });
+    return sections;
+  }
+
+  function currentExtValueMap() {
+    var map = {};
+    (state.goodsDraft || []).forEach(function (item) {
+      if (item && item.name) map[item.name] = item.value;
+    });
+    return map;
+  }
+
   function renderGoodsAttrBody() {
     var body = document.getElementById('libGoodsAttrBody');
-    var node = store.getNode(state.goodsCategoryId || state.selectedL4);
-    if (!body || !node) return;
-    var rows = store.listAttributeRows(node.id);
-    body.innerHTML = rows.length
-      ? rows.map(function (row) { return renderFilterAttribute(row.attr); }).join('')
-      : '<div class="mdl-filter-empty">该分类暂无商品属性</div>';
+    if (!body) return;
+    var node = store.getNode(state.goodsCategoryId);
+    if (!node) {
+      body.innerHTML = '<div class="mdl-filter-empty">请先选择四级分类</div>';
+      return;
+    }
+    var resolved = resolveGoodsFieldModel(node);
+    var sections = groupExtFields(resolved);
+    if (!sections.length) {
+      body.innerHTML = '<div class="mdl-filter-empty">所属一级字段模型暂无扩展字段</div>';
+      return;
+    }
+    var values = currentExtValueMap();
+    body.innerHTML = sections.map(function (section) {
+      return '<div class="mdl-ext-group">' +
+        '<h4 class="mdl-ext-group__title">' + escapeHtml(section.name) + '</h4>' +
+        '<div class="mdl-goods-grid">' +
+        section.fields.map(function (field) {
+          return renderExtFieldControl(field, values[field.name]);
+        }).join('') +
+        '</div></div>';
+    }).join('');
+    body.querySelectorAll('.mdl-goods-switch input[type="checkbox"]').forEach(function (el) {
+      el.addEventListener('change', function () {
+        var text = el.parentNode && el.parentNode.querySelector('.mdl-goods-switch__text');
+        if (text) text.textContent = el.checked ? '是' : '否';
+      });
+    });
+  }
+
+  function readExtFieldValues(resolved) {
+    var fields = (resolved && resolved.fields) || [];
+    var FieldModel = window.MasterDataFieldModel;
+    return fields.map(function (raw) {
+      var field = FieldModel && FieldModel.normalizeExtensionField
+        ? FieldModel.normalizeExtensionField(raw)
+        : raw;
+      var value = readExtFieldValue(field);
+      return { name: field.name, value: value, key: field.key || '' };
+    }).filter(function (item) {
+      return item.value != null && String(item.value).trim() !== '';
+    });
+  }
+
+  function leafCategoryOptions(l1Id, selectedId) {
+    var leaves = leafCategoriesUnder(l1Id);
+    if (!leaves.length) return '<option value="">该一级下暂无四级分类</option>';
+    return '<option value="">请选择四级分类</option>' + leaves.map(function (node) {
+      var selected = node.id === selectedId ? ' selected' : '';
+      return '<option value="' + escapeHtml(node.id) + '"' + selected + '>' + escapeHtml(node.path || node.name) + '</option>';
+    }).join('');
+  }
+
+  function buildGoodsInfoFields(resolved, item, spuText, skuText, options) {
+    var html = '';
+    var opts = options || {};
+    if (opts.showCategoryPick) {
+      html += goodsField(
+        'libGoodsCategory',
+        '<i>*</i>四级分类',
+        '<select class="mdl-goods-field__control" id="libGoodsCategory">' +
+        leafCategoryOptions(opts.l1Id, opts.categoryId) +
+        '</select>'
+      );
+    }
+    html += goodsInput('libGoodsSpu', 'SPU编码', 'text', '', true, spuText);
+    html += goodsInput('libGoodsSku', '货号', 'text', '', true, skuText);
+    html += goodsInput('libGoodsName', '商品名称', 'text', '请输入商品名称', true);
+    html += goodsInput('libGoodsBarcode', '商品条码', 'text', '请输入商品条码', true);
+    if (fieldVisible(resolved, 'shelfLife')) {
+      html += goodsInput('libGoodsShelf', '保质期天数', 'number', '请输入天数', fieldRequired(resolved, 'shelfLife'));
+    }
+    html += goodsSelect('libGoodsBrand', '商品品牌', brandChoices(item && item.brand), true);
+    if (fieldVisible(resolved, 'operateMode')) {
+      html += goodsSelect('libGoodsOperate', '经营方式', ['代采代销', '购销', '联营'], fieldRequired(resolved, 'operateMode'));
+    }
+    if (fieldVisible(resolved, 'weigh')) {
+      html += goodsSelect('libGoodsWeigh', '是否称重', ['是', '否'], fieldRequired(resolved, 'weigh'));
+    }
+    if (fieldVisible(resolved, 'tempLayer')) {
+      html += goodsSelect('libGoodsTemp', '温层', ['常温', '冷藏', '冷冻'], fieldRequired(resolved, 'tempLayer'));
+    }
+    html += goodsInput('libGoodsPrice', '标准采购价', 'number', '请输入价格', true);
+    html += goodsSelect('libGoodsPurchaseUnit', '标准采购单位', goodsUnitsForScope(item && item.purchaseUnit, item), true);
+    return html;
   }
 
   function readGoodsValue(id) {
@@ -1882,8 +2349,21 @@
     var editingIndex = state.goodsEditing;
     var prev = editingIndex != null ? PRODUCTS[editingIndex] : null;
     var specSource = state.goodsSpecIndex != null && state.goodsSpecIndex >= 0 ? PRODUCTS[state.goodsSpecIndex] : null;
-    var node = prev ? categoryNodeByName(prev.category) : (specSource ? categoryNodeByName(specSource.category) : store.getNode(state.selectedL4));
-    if (!prev && !specSource && !node) return;
+    var node = prev
+      ? categoryNodeByName(prev.category)
+      : (specSource ? categoryNodeByName(specSource.category) : store.getNode(state.goodsCategoryId));
+    if (!prev && !specSource) {
+      var pickId = readGoodsValue('libGoodsCategory');
+      if (pickId) {
+        node = store.getNode(pickId);
+        state.goodsCategoryId = pickId;
+      }
+    }
+    if (!prev && !specSource && !node) {
+      if (typeof showToast === 'function') showToast('请选择四级分类', 'warning');
+      return;
+    }
+    if (!node) return;
     var sku = prev ? prev.sku : nextGoodsSku(node);
     if (!sku) {
       if (typeof showToast === 'function') showToast('该分类货号已用完', 'warning');
@@ -1904,8 +2384,13 @@
       if (typeof showToast === 'function') showToast('请输入商品条码', 'warning');
       return;
     }
+    var fieldModel = resolveGoodsFieldModel(node);
     var shelfText = readGoodsValue('libGoodsShelf');
-    if (shelfText === '' || !isFinite(Number(shelfText)) || Number(shelfText) < 0) {
+    if (fieldRequired(fieldModel, 'shelfLife') && (shelfText === '' || !isFinite(Number(shelfText)) || Number(shelfText) < 0)) {
+      if (typeof showToast === 'function') showToast('请输入保质期天数', 'warning');
+      return;
+    }
+    if (fieldVisible(fieldModel, 'shelfLife') && shelfText !== '' && (!isFinite(Number(shelfText)) || Number(shelfText) < 0)) {
       if (typeof showToast === 'function') showToast('请输入保质期天数', 'warning');
       return;
     }
@@ -1915,18 +2400,60 @@
       return;
     }
     var operateMode = readGoodsValue('libGoodsOperate');
-    if (!operateMode) {
+    if (fieldRequired(fieldModel, 'operateMode') && !operateMode) {
       if (typeof showToast === 'function') showToast('请选择经营方式', 'warning');
       return;
     }
     var weigh = readGoodsValue('libGoodsWeigh');
-    if (!weigh) {
+    if (fieldRequired(fieldModel, 'weigh') && !weigh) {
       if (typeof showToast === 'function') showToast('请选择是否称重', 'warning');
       return;
     }
     var tempLayer = readGoodsValue('libGoodsTemp');
-    if (!tempLayer) {
+    if (fieldRequired(fieldModel, 'tempLayer') && !tempLayer) {
       if (typeof showToast === 'function') showToast('请选择温层', 'warning');
+      return;
+    }
+    if (!fieldVisible(fieldModel, 'shelfLife')) shelfText = prev && prev.shelfLife != null ? String(prev.shelfLife) : (specSource && specSource.shelfLife != null ? String(specSource.shelfLife) : '');
+    if (!fieldVisible(fieldModel, 'operateMode')) operateMode = prev ? prev.operateMode : (specSource ? specSource.operateMode : '');
+    if (!fieldVisible(fieldModel, 'weigh')) weigh = prev ? prev.weigh : (specSource ? specSource.weigh : '');
+    if (!fieldVisible(fieldModel, 'tempLayer')) tempLayer = prev ? prev.tempLayer : (specSource ? specSource.tempLayer : '');
+    var FieldModel = window.MasterDataFieldModel;
+    var draftAttrs = readExtFieldValues(fieldModel);
+    var invalidExt = null;
+    var invalidTip = '';
+    (fieldModel.fields || []).some(function (raw) {
+      var field = FieldModel && FieldModel.normalizeExtensionField
+        ? FieldModel.normalizeExtensionField(raw)
+        : raw;
+      if (!field) return false;
+      var value = readExtFieldValue(field);
+      if (field.required && isExtFieldEmpty(field, value)) {
+        invalidExt = field;
+        var choice = FieldModel && FieldModel.typeIsChoice
+          ? FieldModel.typeIsChoice(field.type)
+          : (field.type === 'select' || field.type === 'radio' || field.type === 'multiSelect');
+        invalidTip = choice ? ('请选择' + field.name) : ('请填写' + field.name);
+        return true;
+      }
+      if (field.type === 'integer' && value !== '') {
+        if (!/^-?\d+$/.test(value)) {
+          invalidExt = field;
+          invalidTip = field.name + '请输入整数';
+          return true;
+        }
+      }
+      if (field.type === 'number' && value !== '') {
+        if (!isFinite(Number(value))) {
+          invalidExt = field;
+          invalidTip = field.name + '请输入数字';
+          return true;
+        }
+      }
+      return false;
+    });
+    if (invalidExt) {
+      if (typeof showToast === 'function') showToast(invalidTip, 'warning');
       return;
     }
     var priceText = readGoodsValue('libGoodsPrice');
@@ -1939,10 +2466,26 @@
       if (typeof showToast === 'function') showToast('请选择标准采购单位', 'warning');
       return;
     }
-    var measureConv = readConversion('Measure', prev && prev.minMeasureRateQty, prev && prev.minMeasureRateUnit);
-    var minConv = readConversion('Min', prev && prev.minRateQty, prev && prev.minRateUnit);
-    var specConv = readConversion('Spec', prev && prev.specRateQty, prev && prev.specRateUnit);
-    var packConv = readConversion('Pack', prev && prev.packRateQty, prev && prev.packRateUnit);
+    var showUnits = fieldVisible(fieldModel, 'unitCards');
+    var showCopy = fieldVisible(fieldModel, 'richText');
+    var measureConv = showUnits
+      ? readConversion('Measure', prev && prev.minMeasureRateQty, prev && prev.minMeasureRateUnit)
+      : { qty: prev && prev.minMeasureRateQty != null ? prev.minMeasureRateQty : (specSource && specSource.minMeasureRateQty) || 0, rateUnit: prev && prev.minMeasureRateUnit || (specSource && specSource.minMeasureRateUnit) || '' };
+    var minConv = showUnits
+      ? readConversion('Min', prev && prev.minRateQty, prev && prev.minRateUnit)
+      : { qty: prev && prev.minRateQty != null ? prev.minRateQty : (specSource && specSource.minRateQty) || 0, rateUnit: prev && prev.minRateUnit || (specSource && specSource.minRateUnit) || '' };
+    var specConv = showUnits
+      ? readConversion('Spec', prev && prev.specRateQty, prev && prev.specRateUnit)
+      : { qty: prev && prev.specRateQty != null ? prev.specRateQty : (specSource && specSource.specRateQty) || 0, rateUnit: prev && prev.specRateUnit || (specSource && specSource.specRateUnit) || '' };
+    var packConv = showUnits
+      ? readConversion('Pack', prev && prev.packRateQty, prev && prev.packRateUnit)
+      : { qty: prev && prev.packRateQty != null ? prev.packRateQty : (specSource && specSource.packRateQty) || 0, rateUnit: prev && prev.packRateUnit || (specSource && specSource.packRateUnit) || '' };
+    function keepOrRead(visible, id, prevKey) {
+      if (visible) return readGoodsValue(id);
+      if (prev && prev[prevKey] != null) return prev[prevKey];
+      if (specSource && specSource[prevKey] != null) return specSource[prevKey];
+      return '';
+    }
     var record = {
       category: prev ? prev.category : (specSource ? specSource.category : node.name),
       spu: spu,
@@ -1954,19 +2497,19 @@
       purchasePrice: Number(priceText),
       purchaseQty: prev ? prev.purchaseQty : 0,
       purchaseUnit: purchaseUnit,
-      minMeasureUnit: readGoodsValue('libGoodsMeasureUnit'),
+      minMeasureUnit: keepOrRead(showUnits, 'libGoodsMeasureUnit', 'minMeasureUnit'),
       minMeasureRateQty: measureConv.qty,
       minMeasureRateUnit: measureConv.rateUnit,
       minQty: prev ? prev.minQty : 0,
-      minUnit: readGoodsValue('libGoodsMinUnit'),
+      minUnit: keepOrRead(showUnits, 'libGoodsMinUnit', 'minUnit'),
       minRateQty: minConv.qty,
       minRateUnit: minConv.rateUnit,
       specQty: prev ? prev.specQty : 0,
-      specUnit: readGoodsValue('libGoodsSpecUnit'),
+      specUnit: keepOrRead(showUnits, 'libGoodsSpecUnit', 'specUnit'),
       specRateQty: specConv.qty,
       specRateUnit: specConv.rateUnit,
       packQty: prev ? prev.packQty : 0,
-      packUnit: readGoodsValue('libGoodsPackUnit'),
+      packUnit: keepOrRead(showUnits, 'libGoodsPackUnit', 'packUnit'),
       packRateQty: packConv.qty,
       packRateUnit: packConv.rateUnit,
       amount: prev ? prev.amount : 0,
@@ -1977,19 +2520,21 @@
       operateMode: operateMode,
       shelfLife: shelfText,
       tempLayer: tempLayer,
-      measures: {
-        measure: readMeasure('Measure'),
-        min: readMeasure('Min'),
-        spec: readMeasure('Spec'),
-        pack: readMeasure('Pack')
-      },
-      sellingPoint: readGoodsValue('libGoodsSellingPoint'),
-      productIntro: readGoodsValue('libGoodsProductIntro'),
-      extraUsage: readGoodsValue('libGoodsExtraUsage'),
-      scene: readGoodsValue('libGoodsScene'),
-      afterSale: readGoodsValue('libGoodsAfterSale'),
-      graphicDetail: readGoodsValue('libGoodsGraphicDetail'),
-      attrs: (state.goodsDraft || []).slice()
+      measures: showUnits
+        ? {
+          measure: readMeasure('Measure'),
+          min: readMeasure('Min'),
+          spec: readMeasure('Spec'),
+          pack: readMeasure('Pack')
+        }
+        : (prev && prev.measures) || (specSource && specSource.measures) || {},
+      sellingPoint: keepOrRead(showCopy, 'libGoodsSellingPoint', 'sellingPoint'),
+      productIntro: keepOrRead(showCopy, 'libGoodsProductIntro', 'productIntro'),
+      extraUsage: keepOrRead(showCopy, 'libGoodsExtraUsage', 'extraUsage'),
+      scene: keepOrRead(showCopy, 'libGoodsScene', 'scene'),
+      afterSale: keepOrRead(showCopy, 'libGoodsAfterSale', 'afterSale'),
+      graphicDetail: keepOrRead(showCopy, 'libGoodsGraphicDetail', 'graphicDetail'),
+      attrs: draftAttrs
     };
     if (prev) {
       PRODUCTS[editingIndex] = record;
@@ -2100,13 +2645,19 @@
 
   function openGoodsModal(item, mode) {
     var specMode = mode === 'spec';
-    if (!specMode && !item && !state.selectedL4) {
-      if (typeof showToast === 'function') showToast('请先选择四级分类', 'warning');
+    if (!specMode && !item && !state.selectedL1) {
+      if (typeof showToast === 'function') showToast('请先选择一级分类', 'warning');
       return;
     }
     if (specMode && !item) return;
-    var categoryNode = item ? categoryNodeByName(item.category) : store.getNode(state.selectedL4);
-    if (!specMode && !item && !categoryNode) return;
+    var showCategoryPick = !specMode && !item;
+    if (showCategoryPick && !leafCategoriesUnder(state.selectedL1).length) {
+      if (typeof showToast === 'function') showToast('该一级下暂无四级分类', 'warning');
+      return;
+    }
+    var categoryNode = item ? categoryNodeByName(item.category) : null;
+    if (showCategoryPick) categoryNode = null;
+    if (!showCategoryPick && !categoryNode) return;
     var editingIndex = !specMode && item ? PRODUCTS.indexOf(item) : -1;
     if (!specMode && item && editingIndex < 0) return;
     var specIndex = specMode ? PRODUCTS.indexOf(item) : -1;
@@ -2118,15 +2669,53 @@
     state.goodsSpecIndex = specMode ? specIndex : null;
     state.goodsCategoryId = categoryNode ? categoryNode.id : null;
     state.goodsDraft = item && item.attrs ? item.attrs.map(function (attr) {
-      return {
-        name: attr.name,
-        value: attr.value,
-        parentName: attr.parentName || '',
-        parentValue: attr.parentValue || ''
-      };
+      return { name: attr.name, value: attr.value };
     }) : [];
-    var skuText = specMode || !item ? (nextGoodsSku(categoryNode) || '') : String(item.sku || '');
-    var spuText = specMode || (item && item.spu) ? String((item && item.spu) || '') : (nextSpuCode(categoryNode) || '');
+    var modelSource = categoryNode || store.getNode(state.selectedL1);
+    var skuText = '';
+    var spuText = '';
+    if (specMode) {
+      skuText = nextGoodsSku(categoryNode) || '';
+      spuText = String(item.spu || '') || (nextSpuCode(categoryNode) || '');
+    } else if (item) {
+      skuText = String(item.sku || '');
+      spuText = String(item.spu || '');
+    }
+    // 新增：先选四级后再生成 SPU / 货号
+    var fieldModel = resolveGoodsFieldModel(modelSource);
+    var root = level1Category(modelSource) || store.getNode(state.selectedL1);
+    var showUnits = fieldVisible(fieldModel, 'unitCards');
+    var showCopy = fieldVisible(fieldModel, 'richText');
+    var infoSection =
+      '<section class="mdl-goods-section"><h3 class="mdl-goods-section__title">商品信息</h3>' +
+      '<div class="mdl-goods-grid" id="libGoodsInfoGrid">' +
+      buildGoodsInfoFields(fieldModel, item, spuText, skuText, {
+        showCategoryPick: showCategoryPick,
+        l1Id: state.selectedL1,
+        categoryId: categoryNode ? categoryNode.id : ''
+      }) +
+      '</div></section>';
+    var extSection =
+      '<section class="mdl-goods-section"><h3 class="mdl-goods-section__title">扩展字段</h3>' +
+      '<p class="product-category-modal__hint" id="libGoodsExtHint">来自一级分类「' + escapeHtml(root ? root.name : '') + '」字段模型；当前分类「' + escapeHtml(categoryNode ? (categoryNode.path || categoryNode.name) : (showCategoryPick ? '请先选择四级分类' : ((item && item.category) || ''))) + '」。</p>' +
+      '<div id="libGoodsAttrBody"></div></section>';
+    var unitsSection = showUnits
+      ? '<section class="mdl-goods-section" id="libGoodsUnitsSection"><h3 class="mdl-goods-section__title">单位换算</h3><div id="libGoodsUnitsBody">' + goodsUnitCards(item) + '</div></section>'
+      : '';
+    var copySection = showCopy
+      ? '<section class="mdl-goods-section"><h3 class="mdl-goods-section__title">图文信息</h3>' +
+        '<div class="mdl-goods-copy-list">' +
+        goodsTextarea('libGoodsSellingPoint', '1. 卖点', '突出产品相较于竞品的优势，如材质（纯银、镀金、316L不锈钢 等）、数量、款式等方面的优势。') +
+        goodsTextarea('libGoodsProductIntro', '2. 产品基本信息介绍', '涵盖特性、尺寸、颜色等基础信息。') +
+        goodsTextarea('libGoodsExtraUsage', '3. 产品其他功能、操作事项等', '补充产品额外功能及使用注意内容。') +
+        goodsTextarea('libGoodsScene', '4. 场景带入', '明确适用人群，列举使用场合，如展会、约会、节日、送礼等场景。') +
+        goodsTextarea('libGoodsAfterSale', '5. 售后服务', '给予消费者售后保障承诺，增强下单信心。') +
+        goodsTextarea('libGoodsGraphicDetail', '图文详情', '图文详情用于沉淀供货商可复用的商品素材，包含货品实拍图、包装信息、规格参数和销售端展示内容。') +
+        '<div class="mdl-goods-media">' +
+        '<button type="button" class="mdl-goods-media__btn" data-lib-media="image">+ 商品图片</button>' +
+        '<button type="button" class="mdl-goods-media__btn" data-lib-media="video">+ 商品视频</button>' +
+        '</div></div></section>'
+      : '';
     var backdrop = document.createElement('div');
     backdrop.className = 'erp-modal-backdrop product-category-modal-backdrop';
     backdrop.setAttribute('data-lib-goods-modal', '1');
@@ -2135,38 +2724,11 @@
       '<div class="erp-modal__header"><h2 class="erp-modal__title" id="libGoodsModalTitle">' + (!specMode && item ? '编辑商品' : '添加商品') + '</h2>' +
       '<div class="erp-modal__header-actions"><button type="button" class="erp-modal__header-btn" data-lib-goods-close aria-label="关闭">&times;</button></div></div>' +
       '<div class="erp-modal__body">' +
-      '<section class="mdl-goods-section"><h3 class="mdl-goods-section__title">商品属性</h3>' +
-      '<p class="product-category-modal__hint">当前分类「' + escapeHtml(categoryNode ? (categoryNode.path || categoryNode.name) : (item.category || '')) + '」的商品属性。</p>' +
-      '<div id="libGoodsAttrBody"></div></section>' +
-      '<section class="mdl-goods-section"><h3 class="mdl-goods-section__title">商品信息</h3>' +
-      '<div class="mdl-goods-grid">' +
-      goodsInput('libGoodsSpu', 'SPU编码', 'text', '', true, spuText) +
-      goodsInput('libGoodsSku', '货号', 'text', '', true, skuText) +
-      goodsInput('libGoodsName', '商品名称', 'text', '请输入商品名称', true) +
-      goodsInput('libGoodsBarcode', '商品条码', 'text', '请输入商品条码', true) +
-      goodsInput('libGoodsShelf', '保质期天数', 'number', '请输入天数', true) +
-      goodsSelect('libGoodsBrand', '商品品牌', brandChoices(item && item.brand), true) +
-      goodsSelect('libGoodsOperate', '经营方式', ['代采代销', '购销', '联营'], true) +
-      goodsSelect('libGoodsWeigh', '是否称重', ['是', '否'], true) +
-      goodsSelect('libGoodsTemp', '温层', ['常温', '冷藏', '冷冻'], true) +
-      goodsInput('libGoodsPrice', '标准采购价', 'number', '请输入价格', true) +
-      goodsSelect('libGoodsPurchaseUnit', '标准采购单位', goodsUnitsForScope(item && item.purchaseUnit, item), true) +
+      infoSection +
+      extSection +
+      unitsSection +
+      copySection +
       '</div>' +
-      goodsUnitCards(item) +
-      '</section>' +
-      '<section class="mdl-goods-section"><h3 class="mdl-goods-section__title">图文信息</h3>' +
-      '<div class="mdl-goods-copy-list">' +
-      goodsTextarea('libGoodsSellingPoint', '1. 卖点', '突出产品相较于竞品的优势，如材质（纯银、镀金、316L不锈钢 等）、数量、款式等方面的优势。') +
-      goodsTextarea('libGoodsProductIntro', '2. 产品基本信息介绍', '涵盖特性、尺寸、颜色等基础信息。') +
-      goodsTextarea('libGoodsExtraUsage', '3. 产品其他功能、操作事项等', '补充产品额外功能及使用注意内容。') +
-      goodsTextarea('libGoodsScene', '4. 场景带入', '明确适用人群，列举使用场合，如展会、约会、节日、送礼等场景。') +
-      goodsTextarea('libGoodsAfterSale', '5. 售后服务', '给予消费者售后保障承诺，增强下单信心。') +
-      goodsTextarea('libGoodsGraphicDetail', '图文详情', '图文详情用于沉淀供货商可复用的商品素材，包含货品实拍图、包装信息、规格参数和销售端展示内容。') +
-      '<div class="mdl-goods-media">' +
-      '<button type="button" class="mdl-goods-media__btn" data-lib-media="image">+ 商品图片</button>' +
-      '<button type="button" class="mdl-goods-media__btn" data-lib-media="video">+ 商品视频</button>' +
-      '</div>' +
-      '</div></section></div>' +
       '<div class="erp-modal__footer"><button type="button" class="erp-btn" data-lib-goods-cancel>取消</button>' +
       '<button type="button" class="erp-btn erp-btn--primary" data-lib-goods-ok>确定</button></div></div>';
     backdrop.addEventListener('click', function (ev) {
@@ -2176,12 +2738,6 @@
       }
       if (ev.target.closest('[data-lib-goods-ok]')) {
         saveGoods();
-        return;
-      }
-      var valueBtn = ev.target.closest('[data-filter-value]');
-      if (valueBtn) {
-        toggleGoodsAttr(readFilterEntry(valueBtn), ancestorEntries(valueBtn));
-        renderGoodsAttrBody();
         return;
       }
       if (ev.target.closest('[data-lib-media]')) {
@@ -2200,6 +2756,32 @@
       if (target.getAttribute('data-weight') === 'gross' || target.getAttribute('data-weight') === 'tare') syncUnitWeight(group);
     });
     backdrop.addEventListener('change', function (ev) {
+      if (ev.target && ev.target.id === 'libGoodsCategory') {
+        var nextId = ev.target.value || '';
+        var nextNode = nextId ? store.getNode(nextId) : null;
+        state.goodsCategoryId = nextNode ? nextNode.id : null;
+        var spuEl = document.getElementById('libGoodsSpu');
+        var skuEl = document.getElementById('libGoodsSku');
+        if (spuEl) spuEl.value = nextNode ? (nextSpuCode(nextNode) || '') : '';
+        if (skuEl) skuEl.value = nextNode ? (nextGoodsSku(nextNode) || '') : '';
+        var hint = document.getElementById('libGoodsExtHint');
+        var nextRoot = level1Category(nextNode) || store.getNode(state.selectedL1);
+        if (hint) {
+          hint.textContent = '来自一级分类「' + (nextRoot ? nextRoot.name : '') + '」字段模型；当前分类「' +
+            (nextNode ? (nextNode.path || nextNode.name) : '请先选择四级分类') + '」。';
+        }
+        var unitsBody = document.getElementById('libGoodsUnitsBody');
+        if (unitsBody) unitsBody.innerHTML = goodsUnitCards(null);
+        var purchase = document.getElementById('libGoodsPurchaseUnit');
+        if (purchase) {
+          var units = goodsUnitsForScope('', null);
+          purchase.innerHTML = '<option value="">请选择</option>' + units.map(function (unit) {
+            return '<option value="' + escapeHtml(unit) + '">' + escapeHtml(unit) + '</option>';
+          }).join('');
+        }
+        renderGoodsAttrBody();
+        return;
+      }
       var value = ev.target.value || '';
       var pick = ev.target.closest('.mdl-goods-combo__pick');
       if (pick) {
@@ -2232,21 +2814,16 @@
     closeDetailModal();
     closeFilterModal(false);
     state.filterDraft = (state.filter || []).map(function (item) {
-      return {
-        name: item.name,
-        value: item.value,
-        parentName: item.parentName || '',
-        parentValue: item.parentValue || ''
-      };
+      return { name: item.name, value: item.value, match: item.match || '' };
     });
     var backdrop = document.createElement('div');
     backdrop.className = 'erp-modal-backdrop product-category-modal-backdrop';
     backdrop.setAttribute('data-lib-filter-modal', '1');
     backdrop.innerHTML =
       '<div class="erp-modal mdl-filter-modal" role="dialog" aria-modal="true" aria-labelledby="libFilterModalTitle">' +
-      '<div class="erp-modal__header"><h2 class="erp-modal__title" id="libFilterModalTitle">属性筛选</h2>' +
+      '<div class="erp-modal__header"><h2 class="erp-modal__title" id="libFilterModalTitle">字段筛选</h2>' +
       '<div class="erp-modal__header-actions"><button type="button" class="erp-modal__header-btn" data-lib-filter-close aria-label="关闭">&times;</button></div></div>' +
-      '<div class="erp-modal__body"><p class="product-category-modal__hint">选择「' + escapeHtml(focus.name) + '」的属性，可多选。确定后筛选商品。</p>' +
+      '<div class="erp-modal__body"><p class="product-category-modal__hint">按所属一级「字段模型」中的扩展字段筛选「' + escapeHtml(focus.name) + '」下商品；控件形态与字段类型一致。确定后生效。</p>' +
       '<div id="libFilterModalBody"></div></div>' +
       '<div class="erp-modal__footer"><button type="button" class="erp-btn" data-lib-filter-cancel>取消</button>' +
       '<button type="button" class="erp-btn erp-btn--primary" data-lib-filter-ok>确定</button></div></div>';
@@ -2256,113 +2833,151 @@
         return;
       }
       if (ev.target.closest('[data-lib-filter-ok]')) {
+        syncFilterControls(backdrop);
         closeFilterModal(true);
-        return;
       }
-      var valueBtn = ev.target.closest('[data-filter-value]');
-      if (!valueBtn) return;
-      toggleFilter(readFilterEntry(valueBtn), ancestorEntries(valueBtn));
-      renderFilterModalBody();
+    });
+    backdrop.addEventListener('change', function (ev) {
+      syncFilterControls(backdrop);
+      var switchEl = ev.target && ev.target.closest('[data-filter-control="boolean"]');
+      if (switchEl) {
+        var text = switchEl.parentNode && switchEl.parentNode.querySelector('.mdl-goods-switch__text');
+        if (text) text.textContent = switchEl.checked ? '仅看「是」' : '不限';
+      }
+    });
+    backdrop.addEventListener('input', function (ev) {
+      var el = ev.target;
+      if (!el || !el.getAttribute || !el.getAttribute('data-filter-control')) return;
+      var kind = el.getAttribute('data-filter-control');
+      if (kind === 'text' || kind === 'number') syncFilterControls(backdrop);
     });
     document.body.appendChild(backdrop);
     renderFilterModalBody();
   }
 
-  function valueText(value) {
-    return typeof value === 'string' ? value : (value && value.text) || '';
+  function fieldOptionList(field) {
+    var FieldModel = window.MasterDataFieldModel;
+    if (FieldModel && FieldModel.fieldOptions) return FieldModel.fieldOptions(field);
+    return (field && field.options) || [];
   }
 
-  function renderFilterButtons(entries) {
-    return entries.map(function (entry) {
-      var active = isFilterSelected(entry);
-      return '<button type="button" class="mdl-filter-value' + (active ? ' is-active' : '') + '" data-filter-name="' + escapeHtml(entry.name) + '" data-filter-value="' + escapeHtml(entry.value) + '" data-filter-parent-name="' + escapeHtml(entry.parentName || '') + '" data-filter-parent-value="' + escapeHtml(entry.parentValue || '') + '">' + escapeHtml(entry.value) + '</button>';
-    }).join('');
-  }
+  function renderFilterAttribute(raw) {
+    var FieldModel = window.MasterDataFieldModel;
+    var attr = FieldModel && FieldModel.normalizeExtensionField
+      ? FieldModel.normalizeExtensionField(raw)
+      : raw;
+    var type = attr.type || 'select';
+    var typeText = FieldModel && FieldModel.typeLabel ? FieldModel.typeLabel(type) : type;
+    var nameHtml = escapeHtml(attr.name) +
+      '<span class="mdl-filter-row__type">' + escapeHtml(typeText) + '</span>';
+    var current = filterDraftTextValue(attr.name);
+    var options = fieldOptionList(attr);
+    var valuesHtml = '';
+    var controlName = escapeHtml(attr.name);
 
-  function renderFilterRow(name, entries) {
-    return '<div class="mdl-filter-row"><div class="mdl-filter-row__name">' + escapeHtml(name) + '</div><div class="mdl-filter-row__values">' + renderFilterButtons(entries) + '</div></div>';
-  }
-
-  function renderNestedChildren(children, parentName, parentValue) {
-    return (children || []).map(function (child) {
-      if (!child || !child.name) return '';
-      var nodes = [];
-      (child.values || []).forEach(function (raw) {
-        var text = valueText(raw);
-        if (!text) return;
-        nodes.push({
-          entry: attrPick(child.name, text, parentName, parentValue),
-          deeper: raw && raw.children && raw.children.length ? renderNestedChildren(raw.children, child.name, text) : ''
-        });
-      });
-      if (!nodes.length) return '';
-      if (nodes.some(function (node) { return node.deeper; })) {
-        return '<div class="mdl-filter-row"><div class="mdl-filter-row__name">' + escapeHtml(child.name) + '</div></div>' +
-          nodes.map(function (node) {
-            return '<div class="mdl-filter-branch">' +
-              '<div class="mdl-filter-branch__head">' + renderFilterButtons([node.entry]) + '</div>' +
-              (node.deeper ? '<div class="mdl-filter-branch__children">' + node.deeper + '</div>' : '') +
-              '</div>';
-          }).join('');
+    if (type === 'select') {
+      if (!options.length) {
+        valuesHtml = '<span class="mdl-filter-empty">无可选项</span>';
+      } else {
+        valuesHtml = '<select class="mdl-filter-input" data-filter-control="select" data-filter-name="' + controlName + '">' +
+          '<option value="">全部</option>' +
+          options.map(function (option) {
+            return '<option value="' + escapeHtml(option) + '"' + (option === current ? ' selected' : '') + '>' +
+              escapeHtml(option) + '</option>';
+          }).join('') +
+          '</select>';
       }
-      return renderFilterRow(child.name, nodes.map(function (node) { return node.entry; }));
-    }).join('');
-  }
-
-  function renderFilterAttribute(attr) {
-    var plain = [];
-    var branches = [];
-    (attr.values || []).forEach(function (value) {
-      var text = valueText(value);
-      if (!text) return;
-      var entry = attrPick(attr.name, text);
-      var nested = value && value.children && value.children.length ? renderNestedChildren(value.children, attr.name, text) : '';
-      plain.push(entry);
-      branches.push(
-        '<div class="mdl-filter-branch">' +
-        '<div class="mdl-filter-branch__head">' + renderFilterButtons([entry]) + '</div>' +
-        (nested ? '<div class="mdl-filter-branch__children">' + nested + '</div>' : '') +
-        '</div>'
-      );
-    });
-    if (!branches.some(function (html) { return html.indexOf('mdl-filter-branch__children') >= 0; })) {
-      return '<div class="mdl-filter-attr">' + renderFilterRow(attr.name, plain) + '</div>';
+    } else if (type === 'radio') {
+      if (!options.length) {
+        valuesHtml = '<span class="mdl-filter-empty">无可选项</span>';
+      } else {
+        var radioName = 'libFilterRadio_' + String(attr.key || attr.name).replace(/[^\w\-]/g, '_');
+        valuesHtml = '<div class="mdl-goods-choice" data-filter-control="radio" data-filter-name="' + controlName + '">' +
+          '<label class="mdl-goods-choice__item"><input type="radio" name="' + radioName + '" value=""' +
+          (!current ? ' checked' : '') + '><span>全部</span></label>' +
+          options.map(function (option, index) {
+            return '<label class="mdl-goods-choice__item" for="' + radioName + '_' + index + '">' +
+              '<input type="radio" id="' + radioName + '_' + index + '" name="' + radioName + '" value="' +
+              escapeHtml(option) + '"' + (option === current ? ' checked' : '') + '>' +
+              '<span>' + escapeHtml(option) + '</span></label>';
+          }).join('') +
+          '</div>';
+      }
+    } else if (type === 'multiSelect') {
+      if (!options.length) {
+        valuesHtml = '<span class="mdl-filter-empty">无可选项</span>';
+      } else {
+        var selected = filterDraftEntriesForName(attr.name).map(function (item) { return item.value; });
+        valuesHtml = '<div class="mdl-goods-choice" data-filter-control="multi" data-filter-name="' + controlName + '">' +
+          options.map(function (option, index) {
+            var optId = 'libFilterMulti_' + String(attr.key || attr.name).replace(/[^\w\-]/g, '_') + '_' + index;
+            var checked = selected.indexOf(option) >= 0 ? ' checked' : '';
+            return '<label class="mdl-goods-choice__item" for="' + optId + '">' +
+              '<input type="checkbox" id="' + optId + '" value="' + escapeHtml(option) + '"' + checked + '>' +
+              '<span>' + escapeHtml(option) + '</span></label>';
+          }).join('') +
+          '</div>';
+      }
+    } else if (type === 'boolean') {
+      var on = current === '是' || current === 'true' || current === '1';
+      valuesHtml = '<label class="mdl-goods-switch">' +
+        '<input type="checkbox" data-filter-control="boolean" data-filter-name="' + controlName + '"' + (on ? ' checked' : '') + '>' +
+        '<span class="mdl-goods-switch__track" aria-hidden="true"></span>' +
+        '<span class="mdl-goods-switch__text">' + (on ? '仅看「是」' : '不限') + '</span></label>';
+    } else if (type === 'date') {
+      valuesHtml = '<input class="mdl-filter-input" type="date" data-filter-control="date" data-filter-name="' +
+        controlName + '" value="' + escapeHtml(current) + '">';
+    } else if (type === 'number' || type === 'integer') {
+      valuesHtml = '<input class="mdl-filter-input" type="number" data-filter-control="number" data-filter-name="' +
+        controlName + '" ' + (type === 'integer' ? 'step="1" inputmode="numeric" ' : 'step="any" ') +
+        'placeholder="输入后包含匹配" value="' + escapeHtml(current) + '">';
+    } else if (type === 'textarea') {
+      valuesHtml = '<textarea class="mdl-filter-input mdl-filter-input--area" rows="2" data-filter-control="text" data-filter-name="' +
+        controlName + '" placeholder="输入关键词，包含匹配">' + escapeHtml(current) + '</textarea>';
+    } else {
+      valuesHtml = '<input class="mdl-filter-input" type="text" data-filter-control="text" data-filter-name="' +
+        controlName + '" placeholder="输入关键词，包含匹配" value="' + escapeHtml(current) + '">';
     }
-    return '<div class="mdl-filter-attr mdl-filter-attr--tree">' +
-      '<div class="mdl-filter-row"><div class="mdl-filter-row__name">' + escapeHtml(attr.name) + '</div></div>' +
-      '<div class="mdl-filter-branches">' + branches.join('') + '</div></div>';
+
+    return '<div class="mdl-filter-attr" data-filter-field-type="' + escapeHtml(type) + '">' +
+      '<div class="mdl-filter-row"><div class="mdl-filter-row__name">' + nameHtml +
+      '</div><div class="mdl-filter-row__values">' + valuesHtml + '</div></div></div>';
   }
 
   function selectAll(level) {
-    var cursor = level;
-    var hadSelection = false;
-    while (cursor <= 4) {
-      if (state['selectedL' + cursor]) hadSelection = true;
-      state['selectedL' + cursor] = null;
-      cursor += 1;
-    }
+    if (level !== 1) return;
+    var hadSelection = !!state.selectedL1;
+    state.selectedL1 = null;
+    state.selectedL2 = null;
+    state.selectedL3 = null;
+    state.selectedL4 = null;
+    state.queryCat = { l2: '', l3: '', l4: '' };
+    if (state.query) state.query.categoryId = '';
     if (hadSelection) state.filter = [];
     state.page = 1;
     closeFilterModal(false);
     closeGoodsModal();
     closeDetailModal();
     renderCategories();
+    syncQueryCategoryCascader();
     renderLibrary();
   }
 
   function selectLevel(level, id) {
-    state['selectedL' + level] = id;
-    var next = level + 1;
-    while (next <= 4) {
-      state['selectedL' + next] = null;
-      next += 1;
-    }
+    if (level !== 1) return;
+    state.selectedL1 = id;
+    state.selectedL2 = null;
+    state.selectedL3 = null;
+    state.selectedL4 = null;
+    state.queryCat = { l2: '', l3: '', l4: '' };
+    if (state.query) state.query.categoryId = '';
     state.filter = [];
     state.page = 1;
     closeFilterModal(false);
     closeGoodsModal();
     closeDetailModal();
     renderCategories();
+    syncQueryCategoryCascader();
     renderLibrary();
   }
 
@@ -2376,20 +2991,19 @@
   }
 
   function bindEvents() {
-    ['catListL1', 'catListL2', 'catListL3', 'catListL4'].forEach(function (listId) {
-      var el = document.getElementById(listId);
-      if (!el) return;
-      el.addEventListener('click', function (ev) {
+    var catListL1 = document.getElementById('catListL1');
+    if (catListL1) {
+      catListL1.addEventListener('click', function (ev) {
         var allItem = ev.target.closest('.mdl-cat-all[data-all]');
-        if (allItem && el.contains(allItem)) {
-          selectAll(parseInt(allItem.getAttribute('data-level'), 10));
+        if (allItem && catListL1.contains(allItem)) {
+          selectAll(1);
           return;
         }
         var item = ev.target.closest('.product-category-cascade__item[data-id]');
         if (!item) return;
-        selectLevel(parseInt(item.getAttribute('data-level'), 10), item.getAttribute('data-id'));
+        selectLevel(1, item.getAttribute('data-id'));
       });
-    });
+    }
 
     var tabs = document.getElementById('libTabs');
     if (tabs) {
@@ -2498,9 +3112,7 @@
         state.page = 1;
         toggleFilter({
           name: removeBtn.getAttribute('data-filter-remove-name') || '',
-          value: removeBtn.getAttribute('data-filter-remove-value') || '',
-          parentName: removeBtn.getAttribute('data-filter-remove-parent-name') || '',
-          parentValue: removeBtn.getAttribute('data-filter-remove-parent-value') || ''
+          value: removeBtn.getAttribute('data-filter-remove-value') || ''
         });
         renderLibrary();
       });
@@ -2519,28 +3131,12 @@
     { purchase: '件', min: '个', spec: '袋', pack: '箱' }
   ];
 
-  function pushNestedAttrs(attrs, children, parentName, parentValue, variantIndex) {
-    (children || []).forEach(function (child) {
-      var texts = (child && child.values || []).map(function (raw) {
-        return { text: valueText(raw), raw: raw };
-      }).filter(function (item) { return item.text; });
-      if (!child || !child.name || !texts.length) return;
-      var picked = texts[variantIndex % texts.length];
-      attrs.push(attrPick(child.name, picked.text, parentName, parentValue));
-      pushNestedAttrs(attrs, picked.raw && picked.raw.children, child.name, picked.text, variantIndex);
-    });
-  }
-
   function pickMockAttrs(categoryId, variantIndex) {
     var attrs = [];
     store.listAttributeRows(categoryId).forEach(function (row) {
-      var values = ((row.attr && row.attr.values) || []).map(function (value) {
-        return { text: valueText(value), raw: value };
-      }).filter(function (item) { return item.text; });
-      if (!values.length) return;
-      var picked = values[variantIndex % values.length];
-      attrs.push(attrPick(row.attr.name, picked.text));
-      pushNestedAttrs(attrs, picked.raw && picked.raw.children, row.attr.name, picked.text, variantIndex);
+      var options = fieldOptionList(row.attr);
+      if (!options.length) return;
+      attrs.push(attrPick(row.attr.name, options[variantIndex % options.length]));
     });
     return attrs;
   }
@@ -2764,7 +3360,7 @@
 
   function copyAttrs(attrs) {
     return (attrs || []).map(function (attr) {
-      return { name: attr.name, value: attr.value, parentName: attr.parentName || '', parentValue: attr.parentValue || '' };
+      return { name: attr.name, value: attr.value };
     });
   }
 
@@ -2919,6 +3515,7 @@
     fillBrandQuery();
     bindEvents();
     renderCategories();
+    mountQueryCategoryCascader();
     renderLibrary();
   }
 

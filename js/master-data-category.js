@@ -124,28 +124,24 @@
     var breadcrumbEl = document.getElementById('catDetailBreadcrumb');
     var paneInfo = document.getElementById('catDetailPaneInfo');
     var paneUnits = document.getElementById('catDetailPaneUnits');
-    var paneAttrCats = document.getElementById('catDetailPaneAttrCats');
-    var paneAttrs = document.getElementById('catDetailPaneAttrs');
+    var paneFieldModel = document.getElementById('catDetailPaneFieldModel');
     var paneProducts = document.getElementById('catDetailPaneProducts');
     var tabUnits = document.getElementById('catDetailTabUnits');
-    var tabAttrCats = document.getElementById('catDetailTabAttrCats');
-    var tabAttrs = document.getElementById('catDetailTabAttrs');
+    var tabFieldModel = document.getElementById('catDetailTabFieldModel');
     var tabProducts = document.getElementById('catDetailTabProducts');
 
     if (!node) {
       state.detailTab = 'info';
       if (breadcrumbEl) breadcrumbEl.innerHTML = '<span class="product-category-detail__crumb">请选择分类</span>';
       if (tabUnits) tabUnits.hidden = true;
-      if (tabAttrCats) tabAttrCats.hidden = true;
-      if (tabAttrs) tabAttrs.hidden = true;
+      if (tabFieldModel) tabFieldModel.hidden = true;
       if (tabProducts) tabProducts.hidden = true;
       if (paneInfo) {
         paneInfo.hidden = false;
         paneInfo.innerHTML = '<div class="product-category-detail__products-empty">从左侧选择一级至四级分类</div>';
       }
       if (paneUnits) paneUnits.hidden = true;
-      if (paneAttrCats) paneAttrCats.hidden = true;
-      if (paneAttrs) paneAttrs.hidden = true;
+      if (paneFieldModel) paneFieldModel.hidden = true;
       if (paneProducts) paneProducts.hidden = true;
       return;
     }
@@ -159,10 +155,11 @@
     }
 
     if (tabUnits) tabUnits.hidden = node.level !== 1;
-    if (tabAttrCats) tabAttrCats.hidden = node.level !== 1;
-    if (tabAttrs) tabAttrs.hidden = false;
+    if (tabFieldModel) tabFieldModel.hidden = node.level !== 1;
     if (tabProducts) tabProducts.hidden = node.level !== 4;
-    if (node.level !== 1 && (state.detailTab === 'attrcats' || state.detailTab === 'units')) state.detailTab = 'info';
+    if (node.level !== 1 && (state.detailTab === 'fieldmodel' || state.detailTab === 'units' || state.detailTab === 'attrcats' || state.detailTab === 'attrs')) {
+      state.detailTab = 'info';
+    }
     if (node.level !== 4 && state.detailTab === 'products') state.detailTab = 'info';
 
     document.querySelectorAll('.product-category-detail__tab').forEach(function (tab) {
@@ -171,8 +168,7 @@
 
     if (paneInfo) paneInfo.hidden = state.detailTab !== 'info';
     if (paneUnits) paneUnits.hidden = state.detailTab !== 'units';
-    if (paneAttrCats) paneAttrCats.hidden = state.detailTab !== 'attrcats';
-    if (paneAttrs) paneAttrs.hidden = state.detailTab !== 'attrs';
+    if (paneFieldModel) paneFieldModel.hidden = state.detailTab !== 'fieldmodel';
     if (paneProducts) paneProducts.hidden = state.detailTab !== 'products';
 
     var deleteBlocked = store.hasBindingsInTree(node.id);
@@ -190,6 +186,10 @@
           ? '  <button type="button" class="erp-btn" disabled title="上级分类已隐藏，请先显示上级分类">显示</button>'
           : '  <button type="button" class="erp-btn" data-detail-action="on-shelf" data-id="' + node.id + '">显示</button>')
         : '  <button type="button" class="erp-btn" data-detail-action="off-shelf" data-id="' + node.id + '">隐藏</button>';
+      var root = store.rootCategory(node.id);
+      var fieldModelTip = node.level !== 1
+        ? '<p class="product-category-modal__hint" style="margin:12px 0 0">扩展字段与可配商品信息由一级分类「' + escapeHtml(root ? root.name : '') + '」的字段模型统一维护；本级及下级新增商品时按该模型展示。</p>'
+        : '';
 
       paneInfo.innerHTML =
         '<div class="product-category-detail__hero">' +
@@ -207,6 +207,7 @@
         '  <div class="product-category-detail__meta-row"><dt>已绑定商品</dt><dd>' + node.product_count + ' 个' + (node.level < 4 ? '（下级汇总）' : '') + '</dd></div>' +
         '  <div class="product-category-detail__meta-row"><dt>创建时间</dt><dd>' + escapeHtml(node.created_at) + '</dd></div>' +
         '</dl>' +
+        fieldModelTip +
         '<div class="product-category-detail__actions">' +
         '  <button type="button" class="erp-btn erp-btn--primary" data-detail-action="edit" data-id="' + node.id + '">编辑</button>' +
         statusBtn +
@@ -218,12 +219,8 @@
       paneUnits.innerHTML = renderGoodsUnitsPane(node);
     }
 
-    if (paneAttrCats && state.detailTab === 'attrcats' && node.level === 1) {
-      paneAttrCats.innerHTML = renderAttributeCategoriesPane(node);
-    }
-
-    if (paneAttrs && state.detailTab === 'attrs') {
-      paneAttrs.innerHTML = renderAttributesPane(node);
+    if (paneFieldModel && state.detailTab === 'fieldmodel' && node.level === 1) {
+      paneFieldModel.innerHTML = renderFieldModelPane(node);
     }
 
     if (paneProducts && node.level === 4) {
@@ -566,77 +563,6 @@
     if (nameInput) nameInput.focus();
   }
 
-  var ATTR_MAX_LEVEL = 5;
-  var ATTR_LEVEL_TEXT = ['', '一', '二', '三', '四', '五'];
-
-  function attrLevelText(level) {
-    return (ATTR_LEVEL_TEXT[level] || String(level)) + '级属性';
-  }
-
-  function describeAttrValue(value) {
-    if (typeof value === 'string') return { text: value, children: [] };
-    return {
-      text: value && value.text ? String(value.text) : '',
-      children: ((value && value.children) || []).map(function (child) {
-        return {
-          name: (child && child.name) || '',
-          values: ((child && child.values) || []).map(describeAttrValue)
-        };
-      })
-    };
-  }
-
-  function renderAttrTree(values) {
-    var items = (values || []).map(describeAttrValue).filter(function (item) { return item.text; });
-    var hasChild = items.some(function (item) {
-      return (item.children || []).some(function (child) { return child.name; });
-    });
-    if (!hasChild) {
-      return '<div class="master-data-attr-chips">' + renderAttrChips(items.map(function (item) { return item.text; })) + '</div>';
-    }
-    return '<div class="master-data-attr-branches">' + items.map(function (item) {
-      var children = (item.children || []).filter(function (child) { return child.name; }).map(function (child) {
-        return '<div class="master-data-attr-sub">' +
-          '<div class="master-data-attr-sub__name">' + escapeHtml(child.name) + '</div>' +
-          renderAttrTree(child.values) + '</div>';
-      }).join('');
-      return '<div class="master-data-attr-branch">' +
-        '<div class="master-data-attr-branch__value">' + renderAttrChips([item.text]) + '</div>' +
-        (children ? '<div class="master-data-attr-branch__children">' + children + '</div>' : '') +
-        '</div>';
-    }).join('') + '</div>';
-  }
-
-  function renderAttrChips(values) {
-    var list = (values || []).filter(Boolean);
-    if (!list.length) return '<span class="master-data-attr-chip is-empty">未设置</span>';
-    return list.map(function (text) {
-      return '<span class="master-data-attr-chip">' + escapeHtml(text) + '</span>';
-    }).join('');
-  }
-
-  function renderAttributeRow(node, row) {
-    var attr = row.attr;
-    var inheritFrom = LEVEL_LABEL[row.sourceLevel] || '上级分类';
-    var inheritTip = '继承自' + inheritFrom + '，不可操作';
-    var opsHtml = row.inherited
-      ? '<button type="button" class="product-action__link" disabled title="' + escapeHtml(inheritTip) + '">编辑</button>' +
-        '<button type="button" class="product-action__link" disabled title="' + escapeHtml(inheritTip) + '">删除</button>'
-      : '<button type="button" class="product-action__link" data-attr-edit data-cat-id="' + node.id + '" data-attr-id="' + attr.id + '">编辑</button>' +
-        '<button type="button" class="product-action__link product-action__link--muted" data-attr-delete data-cat-id="' + node.id + '" data-attr-id="' + attr.id + '">删除</button>';
-    return (
-      '<div class="master-data-attr' + (row.inherited ? ' master-data-attr--inherited' : '') + '">' +
-      '<div class="master-data-attr__line">' +
-      '<div class="master-data-attr__name">' + escapeHtml(attr.name) +
-      '<span class="master-data-attr__sort">排序 ' + escapeHtml(String(attr.sort != null && attr.sort !== '' ? attr.sort : 0)) + '</span>' +
-      (row.inherited ? '<span class="master-data-attr__inherit">继承自' + escapeHtml(inheritFrom) + '</span>' : '') +
-      '</div>' +
-      '<div class="master-data-attr__body">' + renderAttrTree(attr.values) + '</div>' +
-      '<div class="master-data-attr__ops">' + opsHtml + '</div></div>' +
-      '</div>'
-    );
-  }
-
   function renderGoodsUnitsPane(node) {
     var list = store.getGoodsUnits(node.id);
     var rows = list.length
@@ -661,71 +587,178 @@
     );
   }
 
-  function renderAttributeCategoriesPane(node) {
-    var list = store.getAttributeCategories(node.id);
-    var rows = list.length
-      ? '<div class="master-data-attr__list">' + list.map(function (item) {
-        return (
-          '<div class="master-data-attr master-data-attrcat">' +
-          '<div class="master-data-attr__line">' +
-          '<div class="master-data-attr__name">' + escapeHtml(item.name) +
-          '<span class="master-data-attr__sort">排序 ' + escapeHtml(String(item.sort != null && item.sort !== '' ? item.sort : 0)) + '</span></div>' +
-          '<div class="master-data-attr__ops">' +
-          '<button type="button" class="product-action__link" data-attr-cat-edit data-cat-id="' + node.id + '" data-attr-cat-id="' + item.id + '">编辑</button>' +
-          '<button type="button" class="product-action__link product-action__link--muted" data-attr-cat-delete data-cat-id="' + node.id + '" data-attr-cat-id="' + item.id + '">删除</button>' +
-          '</div></div></div>'
-        );
-      }).join('') + '</div>'
-      : '<div class="product-category-detail__products-empty">暂无属性分类</div>';
-    return (
-      '<div class="master-data-attr__head"><span>共 ' + list.length + ' 个属性分类</span>' +
-      '<button type="button" class="erp-btn erp-btn--primary" data-attr-cat-add data-cat-id="' + node.id + '">新增属性分类</button></div>' +
-      rows
-    );
+  function renderRequiredBadge(required, interactive, key) {
+    var cls = required ? 'master-data-field-badge master-data-field-badge--required' : 'master-data-field-badge master-data-field-badge--optional';
+    var text = required ? '必填' : '选填';
+    if (!interactive) return '<span class="' + cls + '">' + text + '</span>';
+    return '<button type="button" class="' + cls + ' is-action" data-sys-field-toggle-required data-key="' + escapeHtml(key) + '" title="点击切换必填">' + text + '</button>';
   }
 
-  function renderAttributesPane(node) {
-    var rows = store.listAttributeRows(node.id);
-    var categories = store.getAttributeCategories(node.id);
-    var grouped = {};
-    var order = [];
-    categories.forEach(function (item) {
-      grouped[item.id] = { category: item, rows: [] };
-      order.push(item.id);
-    });
-    var orphans = [];
-    rows.forEach(function (row) {
-      var bucket = grouped[row.attr && row.attr.category_id];
-      if (bucket) bucket.rows.push(row);
-      else orphans.push(row);
-    });
-    var sections = order.map(function (id) {
-      return renderAttributeGroup(node, grouped[id].category.name, grouped[id].category.sort, grouped[id].rows);
-    });
-    if (orphans.length) sections.push(renderAttributeGroup(node, '未分类', '', orphans));
-    var listHtml = sections.length
-      ? sections.join('')
-      : '<div class="product-category-detail__products-empty">暂无商品属性</div>';
-    return (
-      '<div class="master-data-attr__head"><span>共 ' + rows.length + ' 个属性</span>' +
-      '<button type="button" class="erp-btn erp-btn--primary" data-attr-add data-cat-id="' + node.id + '">新增属性</button></div>' +
-      listHtml
-    );
+  function renderTypeBadge(typeLabel) {
+    return '<span class="master-data-field-type">' + escapeHtml(typeLabel || '文本') + '</span>';
   }
 
-  function renderAttributeGroup(node, name, sort, rows) {
-    var sortHtml = sort === '' || sort == null
-      ? ''
-      : '<span class="master-data-attr__sort">排序 ' + escapeHtml(String(sort)) + '</span>';
-    var body = rows.length
-      ? '<div class="master-data-attr__list">' + rows.map(function (row) { return renderAttributeRow(node, row); }).join('') + '</div>'
-      : '<div class="master-data-attr-group__empty">暂无商品属性</div>';
+  function renderFieldModelTableHead() {
+    return '<thead><tr><th>字段</th><th>标识</th><th>类型</th><th>必填</th><th>说明</th><th class="master-data-field-table__ops">操作</th></tr></thead>';
+  }
+
+  function renderFieldModelSystemSection(node, resolved) {
+    var visible = [];
+    var hidden = [];
+    (resolved.systemFields || []).forEach(function (item) {
+      if (item.visible) visible.push(item);
+      else hidden.push(item);
+    });
+    var rows = visible.map(function (item) {
+      var ops = item.locked
+        ? '<span class="master-data-field-locked">固定</span>'
+        : '<button type="button" class="product-action__link product-action__link--muted" data-sys-field-toggle-visible data-key="' + escapeHtml(item.key) + '">隐藏</button>';
+      return (
+        '<tr data-sys-field-row="' + escapeHtml(item.key) + '"' + (item.visible ? '' : ' class="is-hidden-field"') + '>' +
+        '<td class="master-data-field-name">' + escapeHtml(item.label) + '</td>' +
+        '<td><code class="master-data-field-key">' + escapeHtml(item.key) + '</code></td>' +
+        '<td>' + renderTypeBadge(item.typeLabel) + '</td>' +
+        '<td>' + renderRequiredBadge(item.required, !item.locked, item.key) + '</td>' +
+        '<td class="master-data-field-tip">' + escapeHtml(item.tip || '—') + '</td>' +
+        '<td class="master-data-field-table__ops">' + ops + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+    var hiddenRows = hidden.map(function (item) {
+      return (
+        '<tr data-sys-field-row="' + escapeHtml(item.key) + '" class="is-hidden-field">' +
+        '<td class="master-data-field-name">' + escapeHtml(item.label) + '</td>' +
+        '<td><code class="master-data-field-key">' + escapeHtml(item.key) + '</code></td>' +
+        '<td>' + renderTypeBadge(item.typeLabel) + '</td>' +
+        '<td>' + renderRequiredBadge(false, false, item.key) + '</td>' +
+        '<td class="master-data-field-tip">' + escapeHtml(item.tip || '—') + '</td>' +
+        '<td class="master-data-field-table__ops">' +
+        '<button type="button" class="product-action__link" data-sys-field-toggle-visible data-key="' + escapeHtml(item.key) + '">显示</button>' +
+        '</td></tr>'
+      );
+    }).join('');
     return (
-      '<section class="master-data-attr-group">' +
-      '<h4 class="master-data-attr-group__title">' + escapeHtml(name) + sortHtml +
-      '<span class="master-data-attr-group__count">' + rows.length + ' 个属性</span></h4>' +
-      body +
+      '<section class="master-data-field-block">' +
+      '<div class="master-data-field-block__head">' +
+      '<h4 class="master-data-field-block__title">通用字段</h4>' +
+      '<span class="master-data-field-block__count">' + visible.length + ' 个</span></div>' +
+      '<div class="master-data-field-table-wrap" data-sys-field-body data-cat-id="' + node.id + '">' +
+      '<table class="master-data-field-table">' + renderFieldModelTableHead() +
+      '<tbody>' + (rows || '<tr><td colspan="6" class="master-data-field-empty">暂无通用字段</td></tr>') + '</tbody></table></div>' +
+      (hidden.length
+        ? '<details class="master-data-field-hidden"><summary>已隐藏 ' + hidden.length + ' 个通用字段</summary>' +
+          '<div class="master-data-field-table-wrap"><table class="master-data-field-table">' + renderFieldModelTableHead() +
+          '<tbody>' + hiddenRows + '</tbody></table></div></details>'
+        : '') +
       '</section>'
+    );
+  }
+
+  function renderExtensionFieldRow(node, attr) {
+    var FieldModel = window.MasterDataFieldModel;
+    var normalized = FieldModel && FieldModel.normalizeExtensionField
+      ? FieldModel.normalizeExtensionField(attr)
+      : attr;
+    var tip = FieldModel && FieldModel.extensionFieldTip
+      ? FieldModel.extensionFieldTip(normalized)
+      : (normalized.tip || '');
+    var typeLabel = FieldModel && FieldModel.typeLabel
+      ? FieldModel.typeLabel(normalized.type || 'select')
+      : '下拉';
+    var key = normalized.key || normalized.name || '';
+    return (
+      '<tr>' +
+      '<td class="master-data-field-name">' + escapeHtml(normalized.name) + '</td>' +
+      '<td><code class="master-data-field-key">' + escapeHtml(key) + '</code></td>' +
+      '<td>' + renderTypeBadge(typeLabel) + '</td>' +
+      '<td>' + renderRequiredBadge(!!normalized.required, false, '') + '</td>' +
+      '<td class="master-data-field-tip">' + escapeHtml(tip || '—') + '</td>' +
+      '<td class="master-data-field-table__ops">' +
+      '<button type="button" class="product-action__link" data-attr-edit data-cat-id="' + node.id + '" data-attr-id="' + attr.id + '">编辑</button>' +
+      '<button type="button" class="product-action__link product-action__link--muted" data-attr-delete data-cat-id="' + node.id + '" data-attr-id="' + attr.id + '">删除</button>' +
+      '</td></tr>'
+    );
+  }
+
+  function renderFieldModelExtensionSections(node, resolved) {
+    var groups = (resolved.groups || []).slice().sort(function (a, b) {
+      return (parseInt(a.sort, 10) || 0) - (parseInt(b.sort, 10) || 0);
+    });
+    var fields = resolved.fields || [];
+    var grouped = {};
+    groups.forEach(function (group) { grouped[group.id] = []; });
+    var orphans = [];
+    fields.forEach(function (field) {
+      if (field.category_id && grouped[field.category_id]) grouped[field.category_id].push(field);
+      else orphans.push(field);
+    });
+    var sections = groups.map(function (group) {
+      var list = (grouped[group.id] || []).slice().sort(function (a, b) {
+        return (parseInt(a.sort, 10) || 0) - (parseInt(b.sort, 10) || 0);
+      });
+      var rows = list.map(function (attr) { return renderExtensionFieldRow(node, attr); }).join('');
+      return (
+        '<section class="master-data-field-block">' +
+        '<div class="master-data-field-block__head">' +
+        '<h4 class="master-data-field-block__title">' + escapeHtml(group.name) +
+        '<span class="master-data-field-block__sub">· ' + escapeHtml(node.name) + '专属</span></h4>' +
+        '<div class="master-data-field-block__actions">' +
+        '<span class="master-data-field-block__count">' + list.length + ' 个</span>' +
+        '<button type="button" class="product-action__link" data-attr-cat-edit data-cat-id="' + node.id + '" data-attr-cat-id="' + group.id + '">编辑分组</button>' +
+        '<button type="button" class="product-action__link product-action__link--muted" data-attr-cat-delete data-cat-id="' + node.id + '" data-attr-cat-id="' + group.id + '">删除分组</button>' +
+        '</div></div>' +
+        '<div class="master-data-field-table-wrap"><table class="master-data-field-table">' + renderFieldModelTableHead() +
+        '<tbody>' + (rows || '<tr><td colspan="6" class="master-data-field-empty">暂无专属字段</td></tr>') +
+        '</tbody></table></div></section>'
+      );
+    });
+    if (orphans.length) {
+      var orphanRows = orphans.map(function (attr) { return renderExtensionFieldRow(node, attr); }).join('');
+      sections.push(
+        '<section class="master-data-field-block">' +
+        '<div class="master-data-field-block__head">' +
+        '<h4 class="master-data-field-block__title">未分类' +
+        '<span class="master-data-field-block__sub">· ' + escapeHtml(node.name) + '专属</span></h4>' +
+        '<span class="master-data-field-block__count">' + orphans.length + ' 个</span></div>' +
+        '<div class="master-data-field-table-wrap"><table class="master-data-field-table">' + renderFieldModelTableHead() +
+        '<tbody>' + orphanRows + '</tbody></table></div></section>'
+      );
+    }
+    if (!sections.length) {
+      return (
+        '<section class="master-data-field-block">' +
+        '<div class="master-data-field-block__head"><h4 class="master-data-field-block__title">类目专属字段</h4></div>' +
+        '<div class="master-data-field-empty-card">暂无专属字段；可新增分组后添加扩展字段</div></section>'
+      );
+    }
+    return sections.join('');
+  }
+
+  function renderFieldModelPane(node) {
+    var resolved = store.resolveFieldModel(node.id);
+    var commonCount = (resolved.systemFields || []).filter(function (item) { return item.visible; }).length;
+    var extCount = (resolved.fields || []).length;
+    var total = commonCount + extCount;
+    return (
+      '<div class="master-data-field-model" data-sys-field-body data-cat-id="' + node.id + '">' +
+      '<div class="master-data-field-model__hero">' +
+      '<div class="master-data-field-model__hero-main">' +
+      '<h3 class="master-data-field-model__title">字段模型与一级类目绑定</h3>' +
+      '<p class="master-data-field-model__bind">绑定的一级类目：<strong>' + escapeHtml(node.code ? node.code + ' ' : '') + escapeHtml(node.name) + '</strong></p>' +
+      '<div class="master-data-field-model__tags">' +
+      '<span class="master-data-field-chip">通用字段 ' + commonCount + '</span>' +
+      '<span class="master-data-field-chip master-data-field-chip--accent">专属字段 ' + extCount + '</span>' +
+      '</div></div>' +
+      '<div class="master-data-field-model__hero-actions">' +
+      '<button type="button" class="erp-btn" data-field-model-copy data-cat-id="' + node.id + '">从其他一级复制</button>' +
+      '<button type="button" class="erp-btn" data-attr-cat-add data-cat-id="' + node.id + '">新增分组</button>' +
+      '<button type="button" class="erp-btn erp-btn--primary" data-attr-add data-cat-id="' + node.id + '">新增扩展字段</button>' +
+      '</div></div>' +
+      renderFieldModelSystemSection(node, resolved) +
+      renderFieldModelExtensionSections(node, resolved) +
+      '<div class="master-data-field-model__footer">' +
+      '<span>' + escapeHtml(node.name) + '模型共 <strong>' + total + '</strong> 个字段</span>' +
+      '</div></div>'
     );
   }
 
@@ -738,6 +771,11 @@
     closeAttrModal();
     var node = store.getNode(catId);
     if (!node) return;
+    if (node.level !== 1) {
+      if (typeof showToast === 'function') showToast('扩展字段请在一级分类的字段模型中维护', 'warning');
+      return;
+    }
+    var FieldModel = window.MasterDataFieldModel;
     var attrs = store.getAttributes(catId);
     var current = null;
     if (attrId) {
@@ -746,234 +784,87 @@
       }
       if (!current) return;
     }
+    var currentNorm = current && FieldModel && FieldModel.normalizeExtensionField
+      ? FieldModel.normalizeExtensionField(current)
+      : (current || {});
     var attrCategories = store.getAttributeCategories(catId);
-    var root = store.rootCategory(catId);
-    var categoryOptions = '<option value="">请选择属性分类</option>' + attrCategories.map(function (item) {
+    var categoryOptions = '<option value="">请选择所属分组</option>' + attrCategories.map(function (item) {
       var selected = current && current.category_id === item.id ? ' selected' : '';
       return '<option value="' + escapeHtml(item.id) + '"' + selected + '>' + escapeHtml(item.name) + '</option>';
     }).join('');
+    var typeList = (FieldModel && FieldModel.EXT_FIELD_TYPES)
+      ? FieldModel.EXT_FIELD_TYPES
+      : ['text', 'textarea', 'select', 'radio', 'multiSelect', 'number', 'integer', 'boolean', 'date'];
+    var typeOptions = typeList.map(function (type) {
+      var label = FieldModel && FieldModel.typeLabel ? FieldModel.typeLabel(type) : type;
+      var selected = (currentNorm.type || 'select') === type ? ' selected' : '';
+      return '<option value="' + type + '"' + selected + '>' + escapeHtml(label) + '</option>';
+    }).join('');
+    var optionsText = ((currentNorm.options || []).join('\n'));
     var categoryHint = attrCategories.length
       ? ''
-      : '<p class="product-category-modal__hint">请先在一级分类「' + escapeHtml(root ? root.name : '') + '」的属性分类页签中维护属性分类。</p>';
+      : '<p class="product-category-modal__hint">请先在字段模型中维护扩展字段分组。</p>';
     var backdrop = document.createElement('div');
     backdrop.className = 'erp-modal-backdrop product-category-modal-backdrop';
     backdrop.setAttribute('data-master-attr-modal', '1');
     backdrop.innerHTML =
       '<div class="erp-modal product-category-modal master-data-attr-modal">' +
-      '<div class="erp-modal__header"><h2 class="erp-modal__title">' + (current ? '编辑属性' : '新增属性') + '</h2>' +
+      '<div class="erp-modal__header"><h2 class="erp-modal__title">' + (current ? '编辑扩展字段' : '新增扩展字段') + '</h2>' +
       '<div class="erp-modal__header-actions"><button type="button" class="erp-modal__header-btn" data-attr-modal-close aria-label="关闭">&times;</button></div></div>' +
-      '<div class="erp-modal__body"><p class="product-category-modal__hint">维护「' + escapeHtml(node.name) + '」的商品属性。属性值下可继续添加下级属性，最多 5 级。</p>' +
+      '<div class="erp-modal__body"><p class="product-category-modal__hint">维护一级分类「' + escapeHtml(node.name) + '」字段模型中的扩展字段。字段为扁平结构，不支持多级。</p>' +
       categoryHint +
-      '<div class="product-category-modal__field"><label class="product-category-modal__label" for="masterAttrCategory">' + renderFieldLabel('属性分类', true) + '</label>' +
+      '<div class="product-category-modal__field"><label class="product-category-modal__label" for="masterAttrCategory">' + renderFieldLabel('所属分组', true) + '</label>' +
       '<select class="product-category-modal__input" id="masterAttrCategory">' + categoryOptions + '</select></div>' +
-      '<div class="product-category-modal__field"><label class="product-category-modal__label" for="masterAttrName">' + renderFieldLabel('属性名称', true) + '</label>' +
-      '<input class="product-category-modal__input" id="masterAttrName" type="text" placeholder="请输入属性名称" value="' + escapeHtml(current ? current.name : '') + '"></div>' +
+      '<div class="product-category-modal__field"><label class="product-category-modal__label" for="masterAttrName">' + renderFieldLabel('字段名称', true) + '</label>' +
+      '<input class="product-category-modal__input" id="masterAttrName" type="text" placeholder="请输入字段名称" value="' + escapeHtml(currentNorm.name || '') + '"></div>' +
+      '<div class="product-category-modal__field"><label class="product-category-modal__label" for="masterAttrKey">' + renderFieldLabel('标识', true) + '</label>' +
+      '<input class="product-category-modal__input" id="masterAttrKey" type="text" placeholder="如 origin" value="' + escapeHtml(currentNorm.key || '') + '"></div>' +
+      '<div class="product-category-modal__field"><label class="product-category-modal__label" for="masterAttrType">' + renderFieldLabel('类型', true) + '</label>' +
+      '<select class="product-category-modal__input" id="masterAttrType">' + typeOptions + '</select></div>' +
       '<div class="product-category-modal__field"><label class="product-category-modal__label" for="masterAttrSort">' + renderFieldLabel('排序', true) + '</label>' +
-      '<input class="product-category-modal__input" id="masterAttrSort" type="number" min="0" placeholder="请输入排序" value="' + (current && current.sort != null && current.sort !== '' ? current.sort : '') + '"></div>' +
-      '<div class="product-category-modal__field"><label class="product-category-modal__label">' + renderFieldLabel('属性值', true) + '</label>' +
-      '<div class="master-data-attr-values" id="masterAttrValues" data-attr-value-list></div></div>' +
+      '<input class="product-category-modal__input" id="masterAttrSort" type="number" min="0" placeholder="请输入排序" value="' + (currentNorm.sort != null && currentNorm.sort !== '' ? currentNorm.sort : '') + '"></div>' +
+      '<div class="product-category-modal__field"><label class="product-category-modal__label">' + renderFieldLabel('必填', false) + '</label>' +
+      '<label class="master-data-field-check"><input id="masterAttrRequired" type="checkbox"' + (currentNorm.required ? ' checked' : '') + '> 必填</label></div>' +
+      '<div class="product-category-modal__field"><label class="product-category-modal__label" for="masterAttrTip">' + renderFieldLabel('说明', false) + '</label>' +
+      '<input class="product-category-modal__input" id="masterAttrTip" type="text" placeholder="选填，展示在字段模型与表单提示" value="' + escapeHtml(currentNorm.tip || '') + '"></div>' +
+      '<div class="product-category-modal__field" id="masterAttrOptionsField"><label class="product-category-modal__label" for="masterAttrOptions">' + renderFieldLabel('选项', true) + '</label>' +
+      '<textarea class="product-category-modal__input" id="masterAttrOptions" rows="5" placeholder="每行一个选项">' + escapeHtml(optionsText) + '</textarea></div>' +
       '</div>' +
       '<div class="erp-modal__footer"><button type="button" class="erp-btn" data-attr-modal-cancel>取消</button>' +
       '<button type="button" class="erp-btn erp-btn--primary" data-attr-modal-save>确定</button></div></div>';
 
-    var valueList = backdrop.querySelector('#masterAttrValues');
-
-    function valuePayload(value) {
-      if (typeof value === 'string' || value == null) return { text: value || '', children: [] };
-      return { text: value.text || '', children: value.children || [] };
-    }
-
-    function valueItemHtml(valueText, level) {
-      var nextBtn = level < ATTR_MAX_LEVEL
-        ? '<button type="button" class="master-data-attr-values__link" data-attr-child-add>' + attrLevelText(level + 1) + '</button>'
-        : '';
-      return (
-        '<div class="master-data-attr-values__item" data-attr-value-item data-attr-level="' + level + '">' +
-        '<div class="master-data-attr-values__row">' +
-        '<input class="product-category-modal__input" data-attr-value-input type="text" placeholder="请输入属性值" value="' + escapeHtml(valueText || '') + '">' +
-        '<button type="button" class="master-data-attr-values__btn master-data-attr-values__btn--add" data-attr-value-add aria-label="添加属性值">+</button>' +
-        '<button type="button" class="master-data-attr-values__btn" data-attr-value-remove aria-label="删除该属性值">−</button>' +
-        nextBtn +
-        '</div>' +
-        '<div class="master-data-attr-values__children" data-attr-children></div>' +
-        '</div>'
-      );
-    }
-
-    function childBlockHtml(child, level) {
-      var childId = child && child.id ? child.id : genId('attr-child');
-      var levelName = attrLevelText(level);
-      return (
-        '<div class="master-data-attr-child" data-attr-child data-child-id="' + childId + '" data-attr-level="' + level + '">' +
-        '<div class="master-data-attr-child__head"><span>' + levelName + '</span>' +
-        '<button type="button" class="product-action__link product-action__link--muted" data-attr-child-remove>删除</button></div>' +
-        '<div class="master-data-attr-child__field"><label class="master-data-attr-child__label">' + renderFieldLabel('属性名称', true) + '</label>' +
-        '<input class="product-category-modal__input" data-attr-child-name type="text" placeholder="请输入' + levelName + '名称" value="' + escapeHtml(child && child.name ? child.name : '') + '"></div>' +
-        '<div class="master-data-attr-child__field"><div class="master-data-attr-child__label">' + renderFieldLabel('属性值', true) + '</div>' +
-        '<div class="master-data-attr-values" data-attr-value-list></div></div>' +
-        '</div>'
-      );
-    }
-
-    function syncRemoveState(container) {
-      if (!container) return;
-      var items = container.querySelectorAll(':scope > [data-attr-value-item]');
-      var onlyEmpty = items.length === 1 && !(items[0].querySelector('[data-attr-value-input]') || {}).value.trim();
-      items.forEach(function (item, index) {
-        var removeBtn = item.querySelector(':scope > .master-data-attr-values__row [data-attr-value-remove]');
-        if (removeBtn) removeBtn.disabled = onlyEmpty && index === 0;
-      });
-    }
-
-    function appendChildBlock(childrenEl, child, level) {
-      if (!childrenEl || level > ATTR_MAX_LEVEL) return null;
-      var holder = document.createElement('div');
-      holder.innerHTML = childBlockHtml(child || {}, level);
-      var block = holder.firstChild;
-      childrenEl.appendChild(block);
-      var list = block.querySelector('[data-attr-value-list]');
-      var values = child && child.values && child.values.length ? child.values : [''];
-      values.forEach(function (value) { appendValueItem(list, value, level); });
-      return block;
-    }
-
-    function appendValueItem(container, value, level, afterItem) {
-      if (!container) return null;
-      var payload = valuePayload(value);
-      var holder = document.createElement('div');
-      holder.innerHTML = valueItemHtml(payload.text, level);
-      var item = holder.firstChild;
-      if (afterItem && afterItem.parentNode === container) container.insertBefore(item, afterItem.nextSibling);
-      else container.appendChild(item);
-      var childrenEl = item.querySelector(':scope > [data-attr-children]');
-      payload.children.forEach(function (child) { appendChildBlock(childrenEl, child, level + 1); });
-      syncRemoveState(container);
-      return item;
-    }
-
-    function readChildren(childrenEl, level) {
-      if (!childrenEl || level > ATTR_MAX_LEVEL) return [];
-      var blocks = childrenEl.querySelectorAll(':scope > [data-attr-child]');
-      var children = [];
-      var seenNames = {};
-      var levelName = attrLevelText(level);
-      for (var i = 0; i < blocks.length; i += 1) {
-        var block = blocks[i];
-        var childName = (block.querySelector('[data-attr-child-name]') || {}).value.trim();
-        if (!childName) {
-          if (typeof showToast === 'function') showToast('请输入' + levelName + '名称', 'warning');
-          return null;
-        }
-        if (seenNames[childName]) {
-          if (typeof showToast === 'function') showToast(levelName + '名称不能重复', 'warning');
-          return null;
-        }
-        seenNames[childName] = true;
-        var childValues = readValueList(block.querySelector('[data-attr-value-list]'), level);
-        if (!childValues) return null;
-        children.push({
-          id: block.getAttribute('data-child-id'),
-          name: childName,
-          values: childValues
-        });
-      }
-      return children;
-    }
-
-    function readValueList(container, level) {
-      var items = container ? container.querySelectorAll(':scope > [data-attr-value-item]') : [];
-      var values = [];
-      var seenValues = {};
-      for (var i = 0; i < items.length; i += 1) {
-        var item = items[i];
-        var valueText = (item.querySelector(':scope > .master-data-attr-values__row [data-attr-value-input]') || {}).value.trim();
-        if (!valueText) {
-          if (typeof showToast === 'function') showToast('请输入属性值', 'warning');
-          return null;
-        }
-        if (seenValues[valueText]) {
-          if (typeof showToast === 'function') showToast('属性值不能重复', 'warning');
-          return null;
-        }
-        seenValues[valueText] = true;
-        var children = readChildren(item.querySelector(':scope > [data-attr-children]'), level + 1);
-        if (!children) return null;
-        values.push({ text: valueText, children: children });
-      }
-      if (!values.length) {
-        if (typeof showToast === 'function') showToast('请输入属性值', 'warning');
-        return null;
-      }
-      return values;
-    }
-
-    var initialValues = current && current.values && current.values.length ? current.values : [''];
-    initialValues.forEach(function (value) { appendValueItem(valueList, value, 1); });
-
-    if (valueList) {
-      valueList.addEventListener('click', function (ev) {
-        var childAdd = ev.target.closest('[data-attr-child-add]');
-        if (childAdd) {
-          var owner = childAdd.closest('[data-attr-value-item]');
-          var ownerLevel = parseInt(owner.getAttribute('data-attr-level'), 10) || 1;
-          if (ownerLevel >= ATTR_MAX_LEVEL) return;
-          var addedChild = appendChildBlock(owner.querySelector(':scope > [data-attr-children]'), {}, ownerLevel + 1);
-          var childNameInput = addedChild && addedChild.querySelector('[data-attr-child-name]');
-          if (childNameInput) childNameInput.focus();
-          return;
-        }
-        var childRemove = ev.target.closest('[data-attr-child-remove]');
-        if (childRemove) {
-          var childBlock = childRemove.closest('[data-attr-child]');
-          if (childBlock) childBlock.remove();
-          return;
-        }
-        var addBtn = ev.target.closest('[data-attr-value-add]');
-        if (addBtn) {
-          var source = addBtn.closest('[data-attr-value-item]');
-          var sourceLevel = parseInt(source.getAttribute('data-attr-level'), 10) || 1;
-          var added = appendValueItem(source.parentElement, '', sourceLevel, source);
-          var input = added && added.querySelector('[data-attr-value-input]');
-          if (input) input.focus();
-          return;
-        }
-        var removeBtn = ev.target.closest('[data-attr-value-remove]');
-        if (!removeBtn || removeBtn.disabled) return;
-        var item = removeBtn.closest('[data-attr-value-item]');
-        if (!item || !item.parentElement) return;
-        var container = item.parentElement;
-        if (container.querySelectorAll(':scope > [data-attr-value-item]').length <= 1) {
-          var lone = item.querySelector('[data-attr-value-input]');
-          if (lone) lone.value = '';
-          var childrenBox = item.querySelector(':scope > [data-attr-children]');
-          if (childrenBox) childrenBox.innerHTML = '';
-        } else {
-          item.remove();
-        }
-        syncRemoveState(container);
-      });
-      valueList.addEventListener('input', function (ev) {
-        if (!ev.target.matches('[data-attr-value-input]')) return;
-        var item = ev.target.closest('[data-attr-value-item]');
-        if (item && item.parentElement) syncRemoveState(item.parentElement);
-      });
+    function syncOptionsVisibility() {
+      var typeEl = document.getElementById('masterAttrType');
+      var box = document.getElementById('masterAttrOptionsField');
+      if (!typeEl || !box) return;
+      var needs = FieldModel && FieldModel.typeNeedsOptions
+        ? FieldModel.typeNeedsOptions(typeEl.value)
+        : (typeEl.value === 'select' || typeEl.value === 'radio' || typeEl.value === 'multiSelect');
+      box.hidden = !needs;
     }
 
     backdrop.addEventListener('click', function (ev) { if (ev.target === backdrop) closeAttrModal(); });
     backdrop.querySelectorAll('[data-attr-modal-close], [data-attr-modal-cancel]').forEach(function (btn) {
       btn.addEventListener('click', closeAttrModal);
     });
+    backdrop.querySelector('#masterAttrType').addEventListener('change', syncOptionsVisibility);
     backdrop.querySelector('[data-attr-modal-save]').addEventListener('click', function () {
       var categoryId = (document.getElementById('masterAttrCategory') || {}).value || '';
       if (!categoryId) {
-        if (typeof showToast === 'function') showToast('请选择属性分类', 'warning');
+        if (typeof showToast === 'function') showToast('请选择所属分组', 'warning');
         return;
       }
       var name = (document.getElementById('masterAttrName') || {}).value.trim();
       if (!name) {
-        if (typeof showToast === 'function') showToast('请输入属性名称', 'warning');
+        if (typeof showToast === 'function') showToast('请输入字段名称', 'warning');
         return;
       }
+      var key = (document.getElementById('masterAttrKey') || {}).value.trim();
+      if (!key) {
+        if (typeof showToast === 'function') showToast('请输入标识', 'warning');
+        return;
+      }
+      var type = (document.getElementById('masterAttrType') || {}).value || 'select';
       var sortInput = document.getElementById('masterAttrSort');
       var sortText = sortInput ? String(sortInput.value || '').trim() : '';
       var sort = parseInt(sortText, 10);
@@ -981,42 +872,58 @@
         if (typeof showToast === 'function') showToast('请输入排序', 'warning');
         return;
       }
-      var sortDuplicated = attrs.some(function (item) {
+      if (attrs.some(function (item) {
         if (current && item.id === current.id) return false;
         return parseInt(item.sort, 10) === sort;
-      });
-      if (sortDuplicated) {
+      })) {
         if (typeof showToast === 'function') showToast('同级下已存在相同排序', 'warning');
         return;
       }
-      var duplicated = store.listAttributeRows(catId).some(function (row) {
-        if (row.attr.name !== name) return false;
-        if (current && !row.inherited && row.attr.id === current.id) return false;
-        return true;
-      });
-      if (duplicated) {
-        if (typeof showToast === 'function') showToast('已存在同名属性', 'warning');
+      if (store.listAttributeRows(catId).some(function (row) {
+        if (current && row.attr.id === current.id) return false;
+        return row.attr.name === name || row.attr.key === key;
+      })) {
+        if (typeof showToast === 'function') showToast('已存在同名字段或标识', 'warning');
         return;
       }
-      var values = readValueList(valueList, 1);
-      if (!values) return;
+      var options = [];
+      var needsOptions = FieldModel && FieldModel.typeNeedsOptions
+        ? FieldModel.typeNeedsOptions(type)
+        : (type === 'select' || type === 'radio' || type === 'multiSelect');
+      if (needsOptions) {
+        options = String((document.getElementById('masterAttrOptions') || {}).value || '')
+          .split(/\n/)
+          .map(function (line) { return line.trim(); })
+          .filter(Boolean);
+        if (!options.length) {
+          if (typeof showToast === 'function') showToast('请填写选项，每行一个', 'warning');
+          return;
+        }
+      }
       var next = {
         id: current ? current.id : genId('attr'),
         name: name,
+        key: key,
+        type: type,
+        required: !!(document.getElementById('masterAttrRequired') || {}).checked,
+        tip: ((document.getElementById('masterAttrTip') || {}).value || '').trim(),
         sort: sort,
         category_id: categoryId,
-        values: values
+        options: options
       };
-      if (current && current.independent_sku) next.independent_sku = current.independent_sku;
+      if (FieldModel && FieldModel.normalizeExtensionField) next = FieldModel.normalizeExtensionField(next);
+      next.id = current ? current.id : next.id;
+      next.category_id = categoryId;
       var list = current
         ? attrs.map(function (item) { return item.id === next.id ? next : item; })
         : attrs.concat([next]);
       store.setAttributes(catId, list);
       closeAttrModal();
       renderAll();
-      if (typeof showToast === 'function') showToast(current ? '属性已更新' : '属性已新增', 'success');
+      if (typeof showToast === 'function') showToast(current ? '扩展字段已更新' : '扩展字段已新增', 'success');
     });
     document.body.appendChild(backdrop);
+    syncOptionsVisibility();
     var nameInput = document.getElementById('masterAttrName');
     if (nameInput) nameInput.focus();
   }
@@ -1028,10 +935,10 @@
       if (attrs[i].id === attrId) attr = attrs[i];
     }
     if (!attr) return;
-    openWarmConfirm('确定删除属性「' + attr.name + '」？', function () {
+    openWarmConfirm('确定删除扩展字段「' + attr.name + '」？', function () {
       store.setAttributes(catId, attrs.filter(function (item) { return item.id !== attrId; }));
       renderAll();
-      if (typeof showToast === 'function') showToast('属性已删除', 'success');
+      if (typeof showToast === 'function') showToast('扩展字段已删除', 'success');
     });
   }
 
@@ -1169,11 +1076,11 @@
     backdrop.setAttribute('data-master-attr-cat-modal', '1');
     backdrop.innerHTML =
       '<div class="erp-modal product-category-modal">' +
-      '<div class="erp-modal__header"><h2 class="erp-modal__title">' + (current ? '编辑属性分类' : '新增属性分类') + '</h2>' +
+      '<div class="erp-modal__header"><h2 class="erp-modal__title">' + (current ? '编辑扩展字段分组' : '新增扩展字段分组') + '</h2>' +
       '<div class="erp-modal__header-actions"><button type="button" class="erp-modal__header-btn" data-attr-cat-modal-close aria-label="关闭">&times;</button></div></div>' +
-      '<div class="erp-modal__body"><p class="product-category-modal__hint">维护一级分类「' + escapeHtml(node.name) + '」的属性分类。下级分类的商品属性从这里选择。</p>' +
-      '<div class="product-category-modal__field"><label class="product-category-modal__label" for="masterAttrCatName">' + renderFieldLabel('属性分类', true) + '</label>' +
-      '<input class="product-category-modal__input" id="masterAttrCatName" type="text" placeholder="请输入属性分类" value="' + escapeHtml(current ? current.name : '') + '"></div>' +
+      '<div class="erp-modal__body"><p class="product-category-modal__hint">维护一级分类「' + escapeHtml(node.name) + '」字段模型中的扩展字段分组。扩展字段从这里选择所属分组。</p>' +
+      '<div class="product-category-modal__field"><label class="product-category-modal__label" for="masterAttrCatName">' + renderFieldLabel('分组名称', true) + '</label>' +
+      '<input class="product-category-modal__input" id="masterAttrCatName" type="text" placeholder="请输入分组名称" value="' + escapeHtml(current ? current.name : '') + '"></div>' +
       '<div class="product-category-modal__field"><label class="product-category-modal__label" for="masterAttrCatSort">' + renderFieldLabel('排序', true) + '</label>' +
       '<input class="product-category-modal__input" id="masterAttrCatSort" type="number" min="0" placeholder="请输入排序" value="' + (current && current.sort != null && current.sort !== '' ? current.sort : '') + '"></div>' +
       '</div>' +
@@ -1186,7 +1093,7 @@
     backdrop.querySelector('[data-attr-cat-modal-save]').addEventListener('click', function () {
       var name = (document.getElementById('masterAttrCatName') || {}).value.trim();
       if (!name) {
-        if (typeof showToast === 'function') showToast('请输入属性分类', 'warning');
+        if (typeof showToast === 'function') showToast('请输入分组名称', 'warning');
         return;
       }
       var sortInput = document.getElementById('masterAttrCatSort');
@@ -1197,7 +1104,7 @@
         return;
       }
       if (list.some(function (item) { return (!current || item.id !== current.id) && item.name === name; })) {
-        if (typeof showToast === 'function') showToast('已存在同名属性分类', 'warning');
+        if (typeof showToast === 'function') showToast('已存在同名分组', 'warning');
         return;
       }
       if (list.some(function (item) { return (!current || item.id !== current.id) && parseInt(item.sort, 10) === sort; })) {
@@ -1215,7 +1122,7 @@
       store.setAttributeCategories(l1Id, saved);
       closeAttrCategoryModal();
       renderAll();
-      if (typeof showToast === 'function') showToast(current ? '属性分类已更新' : '属性分类已新增', 'success');
+      if (typeof showToast === 'function') showToast(current ? '扩展字段分组已更新' : '扩展字段分组已新增', 'success');
     });
     document.body.appendChild(backdrop);
     var nameInput = document.getElementById('masterAttrCatName');
@@ -1230,14 +1137,100 @@
     }
     if (!current) return;
     if (store.isAttributeCategoryUsed(l1Id, categoryId)) {
-      if (typeof showToast === 'function') showToast('该属性分类下已有商品属性，请先调整后再删除', 'warning');
+      if (typeof showToast === 'function') showToast('该分组下已有扩展字段，请先调整后再删除', 'warning');
       return;
     }
-    openWarmConfirm('确定删除属性分类「' + current.name + '」？', function () {
+    openWarmConfirm('确定删除扩展字段分组「' + current.name + '」？', function () {
       store.setAttributeCategories(l1Id, list.filter(function (item) { return item.id !== categoryId; }));
       renderAll();
-      if (typeof showToast === 'function') showToast('属性分类已删除', 'success');
+      if (typeof showToast === 'function') showToast('扩展字段分组已删除', 'success');
     });
+  }
+
+  function closeCopyFieldModelModal() {
+    var modal = document.querySelector('[data-field-model-copy-modal]');
+    if (modal) modal.remove();
+  }
+
+  function openCopyFieldModelModal(targetId) {
+    closeCopyFieldModelModal();
+    var target = store.getNode(targetId);
+    if (!target || target.level !== 1) return;
+    var sources = store.getByLevel(1).filter(function (item) { return item.id !== targetId; });
+    var options = sources.length
+      ? sources.map(function (item) {
+        return '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(item.name) + '</option>';
+      }).join('')
+      : '';
+    var backdrop = document.createElement('div');
+    backdrop.className = 'erp-modal-backdrop product-category-modal-backdrop';
+    backdrop.setAttribute('data-field-model-copy-modal', '1');
+    backdrop.innerHTML =
+      '<div class="erp-modal product-category-modal">' +
+      '<div class="erp-modal__header"><h2 class="erp-modal__title">从其他一级复制字段模型</h2>' +
+      '<div class="erp-modal__header-actions"><button type="button" class="erp-modal__header-btn" data-field-model-copy-close aria-label="关闭">&times;</button></div></div>' +
+      '<div class="erp-modal__body">' +
+      '<p class="product-category-modal__hint">将覆盖一级分类「' + escapeHtml(target.name) + '」当前的系统字段与扩展字段配置，类目间互不影响。</p>' +
+      (sources.length
+        ? '<div class="product-category-modal__field"><label class="product-category-modal__label" for="fieldModelCopySource">' + renderFieldLabel('来源一级', true) + '</label>' +
+          '<select class="product-category-modal__input" id="fieldModelCopySource"><option value="">请选择来源一级分类</option>' + options + '</select></div>'
+        : '<div class="product-category-detail__products-empty">暂无其他一级分类可复制</div>') +
+      '</div>' +
+      '<div class="erp-modal__footer"><button type="button" class="erp-btn" data-field-model-copy-cancel>取消</button>' +
+      '<button type="button" class="erp-btn erp-btn--primary" data-field-model-copy-ok' + (sources.length ? '' : ' disabled') + '>确定复制</button></div></div>';
+    backdrop.addEventListener('click', function (ev) { if (ev.target === backdrop) closeCopyFieldModelModal(); });
+    backdrop.querySelectorAll('[data-field-model-copy-close], [data-field-model-copy-cancel]').forEach(function (btn) {
+      btn.addEventListener('click', closeCopyFieldModelModal);
+    });
+    var okBtn = backdrop.querySelector('[data-field-model-copy-ok]');
+    if (okBtn) {
+      okBtn.addEventListener('click', function () {
+        var sourceId = (document.getElementById('fieldModelCopySource') || {}).value || '';
+        if (!sourceId) {
+          if (typeof showToast === 'function') showToast('请选择来源一级分类', 'warning');
+          return;
+        }
+        openWarmConfirm('确定用所选一级的字段模型覆盖「' + target.name + '」的当前配置？', function () {
+          if (!store.copyFieldModel(targetId, sourceId)) {
+            if (typeof showToast === 'function') showToast('复制失败', 'warning');
+            return;
+          }
+          closeCopyFieldModelModal();
+          renderAll();
+          if (typeof showToast === 'function') showToast('字段模型已复制', 'success');
+        });
+      });
+    }
+    document.body.appendChild(backdrop);
+  }
+
+  function toggleSystemField(catId, key, action) {
+    var resolved = store.resolveFieldModel(catId);
+    var FieldModel = window.MasterDataFieldModel;
+    var pool = FieldModel && FieldModel.SYSTEM_FIELD_POOL ? FieldModel.SYSTEM_FIELD_POOL : [];
+    var next = pool.map(function (meta) {
+      var current = resolved.byKey && resolved.byKey[meta.key]
+        ? resolved.byKey[meta.key]
+        : { visible: meta.defaultVisible, required: meta.defaultRequired, locked: meta.locked };
+      if (meta.locked) {
+        return { key: meta.key, visible: true, required: true };
+      }
+      var visible = !!current.visible;
+      var required = !!current.required;
+      if (meta.key === key) {
+        if (action === 'visible') {
+          visible = !visible;
+          if (!visible) required = false;
+        } else if (action === 'required') {
+          if (!visible) visible = true;
+          required = !required;
+        }
+      }
+      return { key: meta.key, visible: visible, required: required && visible };
+    });
+    store.setSystemFields(catId, next);
+    renderDetail();
+    if (typeof showToast === 'function') showToast('系统字段已更新', 'success');
   }
 
   function openWarmConfirm(message, onConfirm) {
@@ -1351,6 +1344,11 @@
           else if (action === 'delete') deleteCategory(id);
           return;
         }
+        var copyFieldModelBtn = e.target.closest('[data-field-model-copy]');
+        if (copyFieldModelBtn) {
+          openCopyFieldModelModal(copyFieldModelBtn.getAttribute('data-cat-id'));
+          return;
+        }
         var addAttrBtn = e.target.closest('[data-attr-add]');
         if (addAttrBtn) {
           openAttributeModal(addAttrBtn.getAttribute('data-cat-id'));
@@ -1394,6 +1392,22 @@
         var delAttrBtn = e.target.closest('[data-attr-delete]');
         if (delAttrBtn) {
           deleteAttribute(delAttrBtn.getAttribute('data-cat-id'), delAttrBtn.getAttribute('data-attr-id'));
+          return;
+        }
+        var toggleVisible = e.target.closest('[data-sys-field-toggle-visible]');
+        if (toggleVisible) {
+          var bodyVisible = e.target.closest('[data-sys-field-body]');
+          if (bodyVisible) {
+            toggleSystemField(bodyVisible.getAttribute('data-cat-id'), toggleVisible.getAttribute('data-key'), 'visible');
+          }
+          return;
+        }
+        var toggleRequired = e.target.closest('[data-sys-field-toggle-required]');
+        if (toggleRequired) {
+          var bodyRequired = e.target.closest('[data-sys-field-body]');
+          if (bodyRequired) {
+            toggleSystemField(bodyRequired.getAttribute('data-cat-id'), toggleRequired.getAttribute('data-key'), 'required');
+          }
         }
       });
     }

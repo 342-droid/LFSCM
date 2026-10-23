@@ -77,170 +77,48 @@
     }
   ];
 
-  /** 演示属性：是否独立货号为真的归到「影响货号」 */
-  function attr(name, independentSku, values) {
-    return { name: name, independent_sku: independentSku, values: values };
+  /** 一级类目扩展字段种子（扁平，无多级） */
+  function extField(name, options, required, tip) {
+    return {
+      name: name,
+      type: 'select',
+      required: !!required,
+      tip: tip || '',
+      options: options || []
+    };
   }
 
-  /** 每个分类都有示例属性；下级会继承上级 */
-  var ATTR_SEED = {
-    '生鲜食品': [attr('储存条件', false, ['冷藏', '常温', '冷冻']), attr('配送时效', true, ['当日达', '次日达'])],
-    '蔬菜': [attr('是否洗净', false, ['已洗净', '未洗净']), attr('产地类型', true, [
-      { text: '本地', children: [{ name: '等级', values: ['一级', '二级'] }] },
-      '外地'
-    ])],
-    '叶菜类': [attr('叶片', false, ['嫩叶', '老叶'])],
-    '生菜': [attr('结球', false, ['结球', '散叶']), attr('重量', true, ['300g', '500g'])],
-    '菠菜': [attr('根茎', false, ['带根', '去根']), attr('重量', true, ['250g', '500g'])],
-    '油麦菜': [attr('长度', false, ['短', '长']), attr('重量', true, ['300g', '500g'])],
-    '根茎类': [attr('是否去皮', false, ['去皮', '带皮'])],
-    '土豆': [attr('品种', false, ['黄心', '白心']), attr('规格', true, ['小', '中', '大'])],
-    '胡萝卜': [attr('是否水洗', false, ['水洗', '带泥']), attr('规格', true, ['小', '大'])],
-    '红薯': [attr('薯种', false, ['红心', '紫心']), attr('规格', true, ['小', '大'])],
-    '茄果瓜类': [attr('是否有机', false, ['有机', '普通'])],
-    '西红柿': [attr('果型', false, ['大果', '小果']), attr('成熟度', true, ['硬熟', '软熟'])],
-    '黄瓜': [attr('是否刺瘤', false, ['有刺', '无刺']), attr('长度', true, ['短', '长'])],
-    '茄子': [
-      attr('产地', true, [
-        { text: '本地', children: [{ name: '等级', values: ['一级', '二级'] }] },
-        '外地'
-      ]),
-      attr('果型', false, ['圆茄', '长茄']),
-      attr('种植方式', false, [
-        {
-          text: '大棚',
-          children: [{
-            name: '茬口',
-            values: [{
-              text: '早春',
-              children: [{
-                name: '育苗',
-                values: [{
-                  text: '嫁接',
-                  children: [{
-                    name: '砧木',
-                    values: [{
-                      text: '托鲁巴姆',
-                      children: [{ name: '苗龄', values: ['45天', '60天'] }]
-                    }]
-                  }]
-                }]
-              }]
-            }]
-          }]
-        },
-        '露地'
-      ])
+  var EXT_FIELD_SEED = {
+    '生鲜食品': [
+      extField('储存条件', ['冷藏', '常温', '冷冻'], true, '影响仓储与配送温层'),
+      extField('配送时效', ['当日达', '次日达'], true, ''),
+      extField('是否洗净', ['已洗净', '未洗净'], false, ''),
+      extField('产地', ['本地', '外地'], true, '精确到市县，影响物流'),
+      extField('果型', ['圆茄', '长茄', '大果', '小果'], false, ''),
+      extField('成熟度', ['硬熟', '软熟', '适中'], false, ''),
+      extField('规格', ['小', '中', '大'], false, '')
     ],
-    '水果': [attr('成熟度', false, ['偏生', '适中', '偏熟']), attr('规格', true, ['小果', '中果', '大果'])],
-    '仁果类': [attr('口感', false, ['脆', '面'])],
-    '苹果': [attr('品种', true, ['红富士', '嘎啦']), attr('果径', false, ['75mm', '80mm'])],
-    '梨': [attr('品种', true, ['雪梨', '香梨']), attr('果径', false, ['70mm', '80mm'])],
-    '柑橘类': [attr('酸甜', false, ['偏酸', '偏甜'])],
-    '橙子': [attr('品种', true, ['脐橙', '血橙']), attr('果径', false, ['65mm', '75mm'])],
-    '柚子': [attr('品种', true, ['白心', '红心']), attr('重量', false, ['1kg', '1.5kg'])],
-    '肉禽水产': [attr('储存温度', false, ['0-4℃', '冷冻']), attr('分割', true, ['整块', '切片'])],
-    '猪肉': [attr('肥瘦', false, ['瘦', '五花'])],
-    '五花肉': [attr('厚度', true, ['薄', '厚']), attr('部位', false, ['前五花', '后五花'])],
-    '里脊': [attr('厚度', true, ['薄片', '厚切']), attr('是否腌制', false, ['鲜肉', '腌制'])],
-    '排骨': [attr('切法', true, ['小排', '肋排']), attr('带肉量', false, ['多肉', '少肉'])],
-    '禽类': [attr('饲养', false, ['散养', '笼养'])],
-    '鸡腿': [attr('是否去骨', true, ['带骨', '去骨']), attr('部位', false, ['琵琶腿', '整腿'])],
-    '鸡翅': [attr('部位', true, ['翅中', '翅根']), attr('是否腌制', false, ['鲜', '腌制'])],
-    '粮油调味': [attr('包装', false, ['袋装', '瓶装']), attr('保质期', true, ['6个月', '12个月'])],
-    '米面': [attr('加工精度', false, ['精制', '粗制'])],
-    '大米': [attr('稻种', false, ['粳米', '籼米'])],
-    '东北大米': [
-      attr('规格', true, ['5kg', '10kg']),
-      attr('产地', false, ['黑龙江', '吉林']),
-      attr('产区', false, [
-        {
-          text: '五常',
-          children: [{
-            name: '乡镇',
-            values: [{
-              text: '民乐',
-              children: [{
-                name: '地块',
-                values: [{
-                  text: '核心区',
-                  children: [{
-                    name: '品种系',
-                    values: [{
-                      text: '稻花香',
-                      children: [{ name: '年份', values: ['当年', '次年'] }]
-                    }]
-                  }]
-                }]
-              }]
-            }]
-          }]
-        },
-        '普通产区'
-      ])
+    '粮油调味': [
+      extField('包装', ['袋装', '瓶装'], true, ''),
+      extField('保质期', ['6个月', '12个月'], true, ''),
+      extField('加工精度', ['精制', '粗制'], false, ''),
+      extField('规格', ['5kg', '10kg', '1kg', '2.5kg'], true, ''),
+      extField('产地', ['黑龙江', '吉林'], false, '')
     ],
-    '泰国香米': [attr('规格', true, ['5kg', '10kg']), attr('年份', false, ['新米', '陈米'])],
-    '面粉': [attr('筋度', false, ['高筋', '中筋', '低筋'])],
-    '高筋面粉': [attr('规格', true, ['1kg', '2.5kg']), attr('用途', false, ['面包', '面条'])],
-    '低筋面粉': [attr('规格', true, ['1kg', '2.5kg']), attr('用途', false, ['蛋糕', '饼干'])],
-    '调味': [attr('咸度', false, ['淡', '中', '咸'])],
-    '酱油醋': [attr('酿造工艺', false, ['酿造', '配制'])],
-    '生抽': [attr('容量', true, ['500ml', '1L']), attr('咸度', false, ['淡', '标准'])],
-    '老抽': [attr('容量', true, ['500ml', '1L']), attr('色泽', false, ['红亮', '深褐'])],
-    '陈醋': [attr('容量', true, ['500ml', '1L']), attr('酸度', false, ['柔和', '浓酸'])],
-    '香料': [attr('形态', false, ['整粒', '粉末'])],
-    '花椒': [attr('规格', true, ['50g', '100g']), attr('色泽', false, ['红', '青'])],
-    '八角': [attr('规格', true, ['50g', '100g']), attr('完整度', false, ['整朵', '碎瓣'])],
-    '酒水饮料': [attr('包装形式', false, ['瓶装', '罐装']), attr('容量档', true, ['小', '中', '大'])],
-    '饮料': [attr('饮用温度', false, ['常温', '冷藏'])],
-    '碳酸饮料': [attr('气量', false, ['标准', '加强'])],
-    '可乐': [
-      attr('容量', true, ['330ml', '500ml']),
-      attr('是否含糖', false, ['有糖', '无糖']),
-      attr('配方', false, [
-        {
-          text: '经典',
-          children: [{
-            name: '糖度',
-            values: [{
-              text: '标准',
-              children: [{
-                name: '甜味剂',
-                values: [{
-                  text: '蔗糖',
-                  children: [{
-                    name: '糖源',
-                    values: [{
-                      text: '广西',
-                      children: [{ name: '批次', values: ['当季', '陈糖'] }]
-                    }]
-                  }]
-                }]
-              }]
-            }]
-          }]
-        },
-        '零度'
-      ])
+    '酒水饮料': [
+      extField('包装形式', ['瓶装', '罐装'], true, ''),
+      extField('容量档', ['小', '中', '大'], true, ''),
+      extField('饮用温度', ['常温', '冷藏'], false, ''),
+      extField('容量', ['330ml', '500ml', '550ml', '1.5L'], true, ''),
+      extField('是否含糖', ['有糖', '无糖'], false, '')
     ],
-    '雪碧': [attr('容量', true, ['330ml', '500ml']), attr('是否含糖', false, ['有糖', '无糖'])],
-    '饮用水': [attr('水源', false, ['山泉', '纯净'])],
-    '矿泉水': [attr('容量', true, ['550ml', '1.5L']), attr('矿物质', false, ['偏硅', '偏锶'])],
-    '纯净水': [attr('容量', true, ['550ml', '1.5L']), attr('包装', false, ['瓶装', '桶装'])],
-    '酒类': [attr('酒精度', false, ['低度', '中度'])],
-    '啤酒': [attr('麦芽度', false, ['低醇', '普通'])],
-    '工业啤酒': [attr('容量', true, ['330ml', '500ml']), attr('口感', false, ['淡爽', '浓郁'])],
-    '精酿': [attr('容量', true, ['330ml', '500ml']), attr('风格', false, ['IPA', '世涛'])],
-    '餐厨用品': [attr('材质', false, ['塑料', '纸质', '不锈钢']), attr('是否重复使用', true, ['是', '否'])],
-    '一次性用品': [attr('是否降解', false, ['可降解', '普通'])],
-    '餐具': [attr('餐具材质', false, ['纸', '塑料'])],
-    '纸杯': [attr('容量', true, ['250ml', '400ml']), attr('覆膜', false, ['单层', '双层'])],
-    '纸巾': [attr('层数', true, ['2层', '3层']), attr('抽数', false, ['100抽', '200抽'])],
-    '清洁': [attr('香味', false, ['柠檬', '无香'])],
-    '洗洁精': [attr('香型', false, ['柠檬', '绿茶'])],
-    '果蔬净': [attr('容量', true, ['500ml', '1L']), attr('用途', false, ['果蔬', '餐具'])],
-    '餐具净': [attr('容量', true, ['500ml', '1L']), attr('是否浓缩', false, ['浓缩', '普通'])],
-    '其他': [attr('适用场景', false, ['厨房', '餐厅']), attr('规格', true, ['标准', '加量'])]
+    '餐厨用品': [
+      extField('材质', ['塑料', '纸质', '不锈钢'], true, ''),
+      extField('是否重复使用', ['是', '否'], true, ''),
+      extField('是否降解', ['可降解', '普通'], false, ''),
+      extField('容量', ['250ml', '400ml', '500ml', '1L'], false, ''),
+      extField('规格', ['标准', '加量'], false, '')
+    ]
   };
 
   /** 一级分类演示商品单位（从全局枚举中挑选） */
@@ -251,57 +129,54 @@
     '餐厨用品': ['箱', '件', '个', '包', '卷', '张', '套', '支']
   };
 
-  /** 一级分类的属性分类。names 命中的属性归入该组，未命中的归入最后一组 */
+  /** 一级分类的扩展字段分组。names 命中的字段归入该组，未命中的归入最后一组 */
   var ATTR_GROUP_SEED = {
     '生鲜食品': [
-      { name: '储存配送', sort: 10, names: ['储存条件', '配送时效', '储存温度'] },
-      { name: '规格参数', sort: 20, names: ['规格', '重量', '长度', '果径', '厚度', '容量'] },
-      { name: '品质属性', sort: 30, names: [] }
+      { name: '储存配送', sort: 10, names: ['储存条件', '配送时效'] },
+      { name: '产地与规格', sort: 20, names: ['产地', '果型', '成熟度', '规格', '是否洗净'] },
+      { name: '其他', sort: 30, names: [] }
     ],
     '粮油调味': [
       { name: '包装保质', sort: 10, names: ['包装', '保质期'] },
-      { name: '规格参数', sort: 20, names: ['规格', '容量'] },
-      { name: '工艺属性', sort: 30, names: [] }
+      { name: '规格产地', sort: 20, names: ['规格', '产地', '加工精度'] },
+      { name: '其他', sort: 30, names: [] }
     ],
     '酒水饮料': [
-      { name: '包装容量', sort: 10, names: ['包装形式', '容量档', '容量', '包装'] },
-      { name: '口感成分', sort: 20, names: [] }
+      { name: '包装容量', sort: 10, names: ['包装形式', '容量档', '容量'] },
+      { name: '口感成分', sort: 20, names: ['饮用温度', '是否含糖'] }
     ],
     '餐厨用品': [
-      { name: '材质用途', sort: 10, names: ['材质', '是否重复使用', '是否降解', '餐具材质', '适用场景', '用途', '覆膜', '香味', '香型', '是否浓缩'] },
-      { name: '规格容量', sort: 20, names: ['容量', '层数', '抽数', '规格'] }
+      { name: '材质用途', sort: 10, names: ['材质', '是否重复使用', '是否降解'] },
+      { name: '规格容量', sort: 20, names: ['容量', '规格'] }
     ]
   };
 
   var data = { categories: [], productBindings: {} };
 
-  function seedAttributesForName(name) {
-    var list = ATTR_SEED[name];
-    if (!list) return [];
-    return list.map(function (item, index) {
-      return {
-        id: 'attr-seed-' + index + '-' + name,
-        name: item.name,
-        sort: (index + 1) * 10,
-        independent_sku: !!item.independent_sku,
-        values: seedAttrValues(item.values, 'attr-seed-' + index + '-' + name)
-      };
-    });
+  function slugKey(name) {
+    var map = {
+      '储存条件': 'storage', '配送时效': 'delivery', '是否洗净': 'washed', '产地': 'origin',
+      '果型': 'fruitShape', '成熟度': 'ripeness', '规格': 'spec', '包装': 'packaging',
+      '保质期': 'shelfLifeLabel', '加工精度': 'processLevel', '包装形式': 'packForm',
+      '容量档': 'capacityTier', '饮用温度': 'drinkTemp', '容量': 'capacity', '是否含糖': 'sugar',
+      '材质': 'material', '是否重复使用': 'reusable', '是否降解': 'degradable'
+    };
+    if (map[name]) return map[name];
+    return 'f' + String(name || '').length + '_' + String(name || '').replace(/\s+/g, '');
   }
 
-  function seedAttrValues(values, idPrefix) {
-    return (values || []).map(function (value, valueIndex) {
-      if (typeof value === 'string') return { text: value, children: [] };
+  function seedExtensionFieldsForL1(l1Name) {
+    var list = EXT_FIELD_SEED[l1Name] || [];
+    return list.map(function (item, index) {
       return {
-        text: value.text || '',
-        children: (value.children || []).map(function (child, childIndex) {
-          var childId = child.id || (idPrefix + '-' + valueIndex + '-' + childIndex);
-          return {
-            id: childId,
-            name: child.name || '',
-            values: seedAttrValues(child.values, childId)
-          };
-        })
+        id: 'ext-seed-' + index + '-' + l1Name,
+        name: item.name,
+        key: slugKey(item.name),
+        type: item.type || 'select',
+        required: !!item.required,
+        tip: item.tip || '',
+        sort: (index + 1) * 10,
+        options: (item.options || []).slice()
       };
     });
   }
@@ -350,9 +225,10 @@
         status: spec.status || 'on_shelf',
         is_leaf: spec.level === 4,
         product_count: 0,
-        attributes: spec.attributes ? spec.attributes : seedAttributesForName(spec.name),
+        attributes: [],
         attribute_categories: [],
         goods_units: [],
+        fieldModel: null,
         created_at: spec.createdAt
       });
     }
@@ -436,8 +312,50 @@
 
     assignSeedAttributeCategories(list);
     assignSeedGoodsUnits(list);
+    rollupFieldModels(list);
     recomputeCounts(list, bindings);
     return { categories: list, productBindings: bindings };
+  }
+
+  /** 一级挂载扁平字段模型；下级不持有字段定义 */
+  function rollupFieldModels(categories) {
+    var FieldModel = window.MasterDataFieldModel;
+    var roots = categories.filter(function (node) { return node.level === 1; });
+    roots.forEach(function (root) {
+      var groups = (root.attribute_categories || []).map(function (item) {
+        return FieldModel && FieldModel.cloneJson ? FieldModel.cloneJson(item) : JSON.parse(JSON.stringify(item));
+      });
+      var fields = seedExtensionFieldsForL1(root.name);
+      var groupSpec = ATTR_GROUP_SEED[root.name] || [];
+      var fallback = groups.length ? groups[groups.length - 1].id : '';
+      fields.forEach(function (field) {
+        var matched = '';
+        for (var i = 0; i < groupSpec.length; i += 1) {
+          if ((groupSpec[i].names || []).indexOf(field.name) >= 0 && groups[i]) {
+            matched = groups[i].id;
+            break;
+          }
+        }
+        field.category_id = matched || fallback;
+      });
+      root.fieldModel = {
+        systemFields: FieldModel && FieldModel.seedSystemFieldsForName
+          ? FieldModel.seedSystemFieldsForName(root.name)
+          : (FieldModel && FieldModel.defaultSystemFieldConfigs ? FieldModel.defaultSystemFieldConfigs() : []),
+        groups: groups,
+        fields: fields
+      };
+      root.attribute_categories = groups;
+      root.attributes = fields;
+    });
+
+    categories.forEach(function (node) {
+      if (node.level === 1) return;
+      node.attributes = [];
+      node.attribute_categories = [];
+      node.fieldModel = null;
+      node.goods_units = [];
+    });
   }
 
   function assignSeedGoodsUnits(categories) {
@@ -458,18 +376,9 @@
   }
 
   function assignSeedAttributeCategories(categories) {
-    var byId = {};
-    categories.forEach(function (node) { byId[node.id] = node; });
-
-    function rootOf(node) {
-      var current = node;
-      while (current && current.parent_id) current = byId[current.parent_id];
-      return current;
-    }
-
     categories.forEach(function (node) {
       if (node.level !== 1) return;
-      var spec = ATTR_GROUP_SEED[node.name] || [{ name: '基础属性', sort: 10, names: [] }];
+      var spec = ATTR_GROUP_SEED[node.name] || [{ name: '基础分组', sort: 10, names: [] }];
       node.attribute_categories = spec.map(function (item, index) {
         return {
           id: 'acat-' + node.id + '-' + index,
@@ -477,34 +386,36 @@
           sort: item.sort
         };
       });
-      node._seedAttrGroup = spec.map(function (item, index) {
-        return { id: node.attribute_categories[index].id, names: item.names || [] };
-      });
     });
-
-    categories.forEach(function (node) {
-      var root = rootOf(node);
-      var groups = (root && root._seedAttrGroup) || [];
-      var fallback = groups.length ? groups[groups.length - 1].id : '';
-      (node.attributes || []).forEach(function (attr) {
-        var matched = '';
-        for (var i = 0; i < groups.length; i += 1) {
-          if (groups[i].names.indexOf(attr.name) >= 0) {
-            matched = groups[i].id;
-            break;
-          }
-        }
-        attr.category_id = matched || fallback;
-      });
-    });
-
-    categories.forEach(function (node) { delete node._seedAttrGroup; });
   }
 
   function rootCategory(id) {
     var node = getNode(id);
     while (node && node.parent_id) node = getNode(node.parent_id);
     return node;
+  }
+
+  function ensureFieldModel(root) {
+    if (!root || root.level !== 1) return;
+    var FieldModel = window.MasterDataFieldModel;
+    if (!root.fieldModel) {
+      root.fieldModel = {
+        systemFields: FieldModel && FieldModel.seedSystemFieldsForName
+          ? FieldModel.seedSystemFieldsForName(root.name)
+          : (FieldModel && FieldModel.defaultSystemFieldConfigs ? FieldModel.defaultSystemFieldConfigs() : []),
+        groups: Array.isArray(root.attribute_categories) ? root.attribute_categories.slice() : [],
+        fields: Array.isArray(root.attributes) ? root.attributes.slice() : []
+      };
+    }
+    if (!Array.isArray(root.fieldModel.systemFields)) {
+      root.fieldModel.systemFields = FieldModel && FieldModel.defaultSystemFieldConfigs
+        ? FieldModel.defaultSystemFieldConfigs()
+        : [];
+    }
+    if (!Array.isArray(root.fieldModel.groups)) root.fieldModel.groups = [];
+    if (!Array.isArray(root.fieldModel.fields)) root.fieldModel.fields = [];
+    root.attribute_categories = root.fieldModel.groups;
+    root.attributes = root.fieldModel.fields;
   }
 
   function getNode(id) {
@@ -582,16 +493,23 @@
       return (data.productBindings[id] || []).slice();
     },
 
+    /** 扩展字段始终读所属一级 fieldModel.fields */
     getAttributes: function (id) {
-      var node = getNode(id);
-      return node && Array.isArray(node.attributes) ? node.attributes.slice() : [];
+      var root = rootCategory(id);
+      ensureFieldModel(root);
+      return root && root.fieldModel && Array.isArray(root.fieldModel.fields)
+        ? root.fieldModel.fields.slice()
+        : [];
     },
 
     rootCategory: rootCategory,
 
     getAttributeCategories: function (id) {
       var root = rootCategory(id);
-      var list = root && Array.isArray(root.attribute_categories) ? root.attribute_categories.slice() : [];
+      ensureFieldModel(root);
+      var list = root && root.fieldModel && Array.isArray(root.fieldModel.groups)
+        ? root.fieldModel.groups.slice()
+        : [];
       return list.sort(function (a, b) {
         var aSort = parseInt(a.sort, 10);
         var bSort = parseInt(b.sort, 10);
@@ -604,8 +522,87 @@
     setAttributeCategories: function (id, list) {
       var root = rootCategory(id);
       if (!root || root.level !== 1) return;
+      ensureFieldModel(root);
+      root.fieldModel.groups = list;
       root.attribute_categories = list;
       store.save();
+    },
+
+    getFieldModel: function (id) {
+      var root = rootCategory(id);
+      ensureFieldModel(root);
+      if (!root || !root.fieldModel) {
+        return window.MasterDataFieldModel
+          ? window.MasterDataFieldModel.emptyFieldModel()
+          : { systemFields: [], groups: [], fields: [] };
+      }
+      return window.MasterDataFieldModel && window.MasterDataFieldModel.cloneJson
+        ? window.MasterDataFieldModel.cloneJson(root.fieldModel)
+        : JSON.parse(JSON.stringify(root.fieldModel));
+    },
+
+    resolveFieldModel: function (id) {
+      var FieldModel = window.MasterDataFieldModel;
+      var raw = store.getFieldModel(id);
+      return FieldModel && FieldModel.resolveFieldModel
+        ? FieldModel.resolveFieldModel(raw)
+        : { systemFields: [], groups: raw.groups || [], fields: raw.fields || [], byKey: {} };
+    },
+
+    setFieldModel: function (id, model) {
+      var root = rootCategory(id);
+      if (!root || root.level !== 1) return;
+      var FieldModel = window.MasterDataFieldModel;
+      var next = FieldModel && FieldModel.cloneJson
+        ? FieldModel.cloneJson(model)
+        : JSON.parse(JSON.stringify(model || {}));
+      if (!next.systemFields) {
+        next.systemFields = FieldModel && FieldModel.defaultSystemFieldConfigs
+          ? FieldModel.defaultSystemFieldConfigs()
+          : [];
+      }
+      if (!Array.isArray(next.groups)) next.groups = [];
+      if (!Array.isArray(next.fields)) next.fields = [];
+      root.fieldModel = next;
+      root.attribute_categories = next.groups;
+      root.attributes = next.fields;
+      store.save();
+    },
+
+    setSystemFields: function (id, systemFields) {
+      var root = rootCategory(id);
+      if (!root || root.level !== 1) return;
+      ensureFieldModel(root);
+      root.fieldModel.systemFields = systemFields;
+      store.save();
+    },
+
+    /** 从源一级深拷贝整份 fieldModel 覆盖目标一级 */
+    copyFieldModel: function (targetId, sourceId) {
+      var target = rootCategory(targetId);
+      var source = rootCategory(sourceId);
+      if (!target || target.level !== 1 || !source || source.level !== 1) return false;
+      if (target.id === source.id) return false;
+      ensureFieldModel(source);
+      var FieldModel = window.MasterDataFieldModel;
+      var copied = FieldModel && FieldModel.cloneJson
+        ? FieldModel.cloneJson(source.fieldModel)
+        : JSON.parse(JSON.stringify(source.fieldModel));
+      // 重新生成 groups/fields id，避免跨类目引用冲突
+      var groupIdMap = {};
+      (copied.groups || []).forEach(function (group, index) {
+        var oldId = group.id;
+        group.id = 'acat-' + target.id + '-copy-' + index + '-' + Date.now().toString(36);
+        if (oldId) groupIdMap[oldId] = group.id;
+      });
+      (copied.fields || []).forEach(function (field, index) {
+        field.id = 'attr-' + target.id + '-copy-' + index + '-' + Date.now().toString(36);
+        if (field.category_id && groupIdMap[field.category_id]) {
+          field.category_id = groupIdMap[field.category_id];
+        }
+      });
+      store.setFieldModel(target.id, copied);
+      return true;
     },
 
     /** 一级分类维护的商品单位；传任意下级 id 时取所属一级 */
@@ -634,39 +631,35 @@
     },
 
     isAttributeCategoryUsed: function (l1Id, categoryId) {
-      return collectDescendantIds(l1Id).some(function (did) {
-        var node = getNode(did);
-        return node && (node.attributes || []).some(function (attr) {
-          return attr.category_id === categoryId;
-        });
+      var root = rootCategory(l1Id);
+      ensureFieldModel(root);
+      if (!root || !root.fieldModel) return false;
+      return (root.fieldModel.fields || []).some(function (attr) {
+        return attr.category_id === categoryId;
       });
     },
 
-    /** 从一级到当前分类依次展开；上级属性标记为继承，本级属性可编辑 */
+    /**
+     * 扩展字段统一来自所属一级 fieldModel；
+     * 在非一级查看时标记 inherited，不可在本级增删改。
+     */
     listAttributeRows: function (id) {
       var node = getNode(id);
       if (!node) return [];
-      var chain = [];
-      var current = node;
-      while (current) {
-        chain.unshift(current);
-        current = current.parent_id ? getNode(current.parent_id) : null;
-      }
-      var rows = [];
-      chain.forEach(function (category) {
-        var inherited = category.id !== node.id;
-        (category.attributes || []).forEach(function (attr) {
-          rows.push({
-            attr: attr,
-            inherited: inherited,
-            sourceId: category.id,
-            sourceName: category.name,
-            sourceLevel: category.level
-          });
-        });
+      var root = rootCategory(id);
+      ensureFieldModel(root);
+      if (!root || !root.fieldModel) return [];
+      var inherited = node.level !== 1;
+      var rows = (root.fieldModel.fields || []).map(function (attr) {
+        return {
+          attr: attr,
+          inherited: inherited,
+          sourceId: root.id,
+          sourceName: root.name,
+          sourceLevel: 1
+        };
       });
       rows.sort(function (a, b) {
-        if (a.sourceLevel !== b.sourceLevel) return a.sourceLevel - b.sourceLevel;
         var aSort = parseInt(a.attr && a.attr.sort, 10);
         var bSort = parseInt(b.attr && b.attr.sort, 10);
         if (isNaN(aSort)) aSort = 0;
@@ -677,9 +670,11 @@
     },
 
     setAttributes: function (id, list) {
-      var node = getNode(id);
-      if (!node) return;
-      node.attributes = list;
+      var root = rootCategory(id);
+      if (!root || root.level !== 1) return;
+      ensureFieldModel(root);
+      root.fieldModel.fields = list;
+      root.attributes = list;
       store.save();
     },
 
@@ -697,6 +692,22 @@
     rebuildPath: rebuildPath,
 
     addCategory: function (node) {
+      if (node && node.level === 1) {
+        var FieldModel = window.MasterDataFieldModel;
+        if (!node.fieldModel) {
+          node.fieldModel = FieldModel && FieldModel.emptyFieldModel
+            ? FieldModel.emptyFieldModel()
+            : { systemFields: [], groups: [], fields: [] };
+        }
+        if (!Array.isArray(node.attribute_categories)) node.attribute_categories = node.fieldModel.groups || [];
+        if (!Array.isArray(node.attributes)) node.attributes = node.fieldModel.fields || [];
+        if (!Array.isArray(node.goods_units)) node.goods_units = [];
+      } else if (node) {
+        node.attributes = [];
+        node.attribute_categories = [];
+        node.fieldModel = null;
+        node.goods_units = [];
+      }
       data.categories.push(node);
       store.save();
     },
