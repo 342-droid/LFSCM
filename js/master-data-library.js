@@ -34,8 +34,10 @@
     goodsSpecIndex: null,
     goodsCategoryId: null,
     query: { spu: '', sku: '', barcode: '', name: '', brand: '', status: '', categoryId: '' },
-    /** 查询区商品分类级联草稿（点查询后写入 query.categoryId） */
+    /** 查询区商品分类选择（点查询后写入 query.categoryId） */
     queryCat: { l2: '', l3: '', l4: '' },
+    /** 分类选择弹窗内草稿 */
+    queryCatDraft: { l2: '', l3: '', l4: '' },
     page: 1,
     pageSize: 20
   };
@@ -299,26 +301,6 @@
     renderLibrary();
   }
 
-  function closeQueryCategoryPanel() {
-    var wrap = document.getElementById('libQueryCategoryWrap');
-    var panel = document.getElementById('libQueryCategoryPanel');
-    if (wrap) wrap.classList.remove('is-open');
-    if (panel) {
-      panel.hidden = true;
-      panel.setAttribute('hidden', '');
-    }
-  }
-
-  function openQueryCategoryPanel() {
-    var wrap = document.getElementById('libQueryCategoryWrap');
-    var panel = document.getElementById('libQueryCategoryPanel');
-    if (!wrap || !panel) return;
-    renderQueryCategoryPanel();
-    wrap.classList.add('is-open');
-    panel.hidden = false;
-    panel.removeAttribute('hidden');
-  }
-
   function syncQueryCategoryTrigger() {
     var wrap = document.getElementById('libQueryCategoryWrap');
     var valueEl = document.getElementById('libQueryCategoryValue');
@@ -331,7 +313,6 @@
       valueEl.textContent = '请先选择一级分类';
       valueEl.classList.add('is-placeholder');
       cascader.classList.remove('has-value');
-      closeQueryCategoryPanel();
       return;
     }
     if (path) {
@@ -345,33 +326,148 @@
     }
   }
 
-  function renderQueryCategoryCol(level, parentId, selectedId) {
-    var nodes = parentId ? store.getChildren(parentId) : [];
-    if (!nodes.length) {
-      return '<div class="region-cascader-item" style="cursor:default;color:#909399">暂无</div>';
+  function syncQueryCategoryCascader() {
+    syncQueryCategoryTrigger();
+  }
+
+  function closeQueryCategoryModal() {
+    var modal = document.querySelector('[data-lib-query-cat-modal]');
+    if (modal) modal.remove();
+  }
+
+  function queryCatDraftPath() {
+    var parts = [];
+    [state.queryCatDraft.l2, state.queryCatDraft.l3, state.queryCatDraft.l4].forEach(function (id) {
+      if (!id) return;
+      var node = store.getNode(id);
+      if (node) parts.push(node.name);
+    });
+    return parts.join(' / ');
+  }
+
+  function renderQueryCatModalList(level, parentId, selectedId, emptyText) {
+    if (!parentId) {
+      return '<li class="product-category-cascade__empty">' + escapeHtml(emptyText) + '</li>';
     }
-    return nodes.map(function (node) {
-      var active = node.id === selectedId ? ' is-active' : '';
-      var arrow = level < 4 ? '<span class="region-cascader-item-arrow">›</span>' : '';
-      return '<div class="region-cascader-item' + active + '" data-query-cat-level="' + level + '" data-query-cat-id="' +
-        escapeHtml(node.id) + '"><span>' + escapeHtml(node.name) + '</span>' + arrow + '</div>';
+    var nodes = store.getChildren(parentId) || [];
+    var html = renderAllItem(level, selectedId);
+    if (!nodes.length) {
+      return html + '<li class="product-category-cascade__empty">' + escapeHtml(emptyText) + '</li>';
+    }
+    return html + nodes.map(function (node) {
+      return renderListItem(node, selectedId);
     }).join('');
   }
 
-  function renderQueryCategoryPanel() {
-    var col2 = document.getElementById('libQueryCatCol2');
-    var col3 = document.getElementById('libQueryCatCol3');
-    var col4 = document.getElementById('libQueryCatCol4');
-    if (!col2 || !col3 || !col4) return;
-    var l1 = state.selectedL1;
-    col2.innerHTML = l1 ? renderQueryCategoryCol(2, l1, state.queryCat.l2) : '';
-    col3.innerHTML = state.queryCat.l2 ? renderQueryCategoryCol(3, state.queryCat.l2, state.queryCat.l3) : '';
-    col4.innerHTML = state.queryCat.l3 ? renderQueryCategoryCol(4, state.queryCat.l3, state.queryCat.l4) : '';
+  function renderQueryCategoryModalBody() {
+    var body = document.getElementById('libQueryCatModalBody');
+    if (!body) return;
+    var l1 = store.getNode(state.selectedL1);
+    var draft = state.queryCatDraft || { l2: '', l3: '', l4: '' };
+    var l2Node = draft.l2 ? store.getNode(draft.l2) : null;
+    var l3Node = draft.l3 ? store.getNode(draft.l3) : null;
+    var hintL3 = l2Node ? ('所属：' + (l1 ? l1.name + ' / ' : '') + l2Node.name) : '请先选择二级分类';
+    var hintL4 = l3Node
+      ? ('所属：' + [l1 && l1.name, l2Node && l2Node.name, l3Node.name].filter(Boolean).join(' / '))
+      : '请先选择三级分类';
+    body.innerHTML =
+      '<div class="product-category-cascade mdl-query-cat-cascade">' +
+      '<div class="product-category-cascade__col" data-level="2">' +
+      '<div class="product-category-cascade__head"><div class="product-category-cascade__title"><span>二级分类</span></div></div>' +
+      '<div class="product-category-cascade__hint">所属：' + escapeHtml(l1 ? l1.name : '') + '</div>' +
+      '<ul class="product-category-cascade__list" id="libQueryCatListL2">' +
+      renderQueryCatModalList(2, state.selectedL1, draft.l2, '该一级下暂无二级分类') +
+      '</ul></div>' +
+      '<div class="product-category-cascade__col" data-level="3">' +
+      '<div class="product-category-cascade__head"><div class="product-category-cascade__title"><span>三级分类</span></div></div>' +
+      '<div class="product-category-cascade__hint">' + escapeHtml(hintL3) + '</div>' +
+      '<ul class="product-category-cascade__list" id="libQueryCatListL3">' +
+      renderQueryCatModalList(3, draft.l2, draft.l3, draft.l2 ? '该二级下暂无三级分类' : '请先选择二级分类') +
+      '</ul></div>' +
+      '<div class="product-category-cascade__col" data-level="4">' +
+      '<div class="product-category-cascade__head"><div class="product-category-cascade__title"><span>四级分类</span></div></div>' +
+      '<div class="product-category-cascade__hint">' + escapeHtml(hintL4) + '</div>' +
+      '<ul class="product-category-cascade__list" id="libQueryCatListL4">' +
+      renderQueryCatModalList(4, draft.l3, draft.l4, draft.l3 ? '该三级下暂无四级分类' : '请先选择三级分类') +
+      '</ul></div></div>' +
+      '<p class="product-category-modal__hint mdl-query-cat-picked">已选：' +
+      escapeHtml(queryCatDraftPath() || '未选择（将按一级范围筛选）') + '</p>';
   }
 
-  function syncQueryCategoryCascader() {
-    syncQueryCategoryTrigger();
-    renderQueryCategoryPanel();
+  function openQueryCategoryModal() {
+    if (!state.selectedL1) {
+      if (typeof showToast === 'function') showToast('请先选择一级分类', 'warning');
+      return;
+    }
+    closeQueryCategoryModal();
+    state.queryCatDraft = {
+      l2: state.queryCat.l2 || '',
+      l3: state.queryCat.l3 || '',
+      l4: state.queryCat.l4 || ''
+    };
+    var l1 = store.getNode(state.selectedL1);
+    var backdrop = document.createElement('div');
+    backdrop.className = 'erp-modal-backdrop product-category-modal-backdrop';
+    backdrop.setAttribute('data-lib-query-cat-modal', '1');
+    backdrop.innerHTML =
+      '<div class="erp-modal mdl-query-cat-modal" role="dialog" aria-modal="true" aria-labelledby="libQueryCatModalTitle">' +
+      '<div class="erp-modal__header"><h2 class="erp-modal__title" id="libQueryCatModalTitle">选择商品分类</h2>' +
+      '<div class="erp-modal__header-actions"><button type="button" class="erp-modal__header-btn" data-lib-query-cat-close aria-label="关闭">&times;</button></div></div>' +
+      '<div class="erp-modal__body">' +
+      '<p class="product-category-modal__hint">当前一级「' + escapeHtml(l1 ? l1.name : '') +
+      '」下的二 / 三 / 四级分类，展示方式与商品分类页一致；可点「全部」清空本级及更深选中。</p>' +
+      '<div id="libQueryCatModalBody"></div></div>' +
+      '<div class="erp-modal__footer">' +
+      '<button type="button" class="erp-btn" data-lib-query-cat-clear>清除选择</button>' +
+      '<button type="button" class="erp-btn" data-lib-query-cat-cancel>取消</button>' +
+      '<button type="button" class="erp-btn erp-btn--primary" data-lib-query-cat-ok>确定</button>' +
+      '</div></div>';
+
+    backdrop.addEventListener('click', function (ev) {
+      if (ev.target === backdrop || ev.target.closest('[data-lib-query-cat-close]') || ev.target.closest('[data-lib-query-cat-cancel]')) {
+        closeQueryCategoryModal();
+        return;
+      }
+      if (ev.target.closest('[data-lib-query-cat-clear]')) {
+        state.queryCatDraft = { l2: '', l3: '', l4: '' };
+        renderQueryCategoryModalBody();
+        return;
+      }
+      if (ev.target.closest('[data-lib-query-cat-ok]')) {
+        state.queryCat = {
+          l2: state.queryCatDraft.l2 || '',
+          l3: state.queryCatDraft.l3 || '',
+          l4: state.queryCatDraft.l4 || ''
+        };
+        syncQueryCategoryTrigger();
+        closeQueryCategoryModal();
+        return;
+      }
+      var allItem = ev.target.closest('.mdl-cat-all[data-all]');
+      if (allItem) {
+        var allLevel = parseInt(allItem.getAttribute('data-level'), 10);
+        if (allLevel === 2) state.queryCatDraft = { l2: '', l3: '', l4: '' };
+        else if (allLevel === 3) {
+          state.queryCatDraft.l3 = '';
+          state.queryCatDraft.l4 = '';
+        } else if (allLevel === 4) state.queryCatDraft.l4 = '';
+        renderQueryCategoryModalBody();
+        return;
+      }
+      var item = ev.target.closest('.product-category-cascade__item[data-id]');
+      if (!item || !backdrop.contains(item)) return;
+      var level = parseInt(item.getAttribute('data-level'), 10);
+      var id = item.getAttribute('data-id') || '';
+      if (level === 2) state.queryCatDraft = { l2: id, l3: '', l4: '' };
+      else if (level === 3) {
+        state.queryCatDraft.l3 = id;
+        state.queryCatDraft.l4 = '';
+      } else if (level === 4) state.queryCatDraft.l4 = id;
+      renderQueryCategoryModalBody();
+    });
+
+    document.body.appendChild(backdrop);
+    renderQueryCategoryModalBody();
   }
 
   function mountQueryCategoryCascader() {
@@ -388,27 +484,15 @@
       '<span class="region-cascader-value is-placeholder" id="libQueryCategoryValue">请先选择一级分类</span>' +
       '<span class="region-cascader-clear" id="libQueryCategoryClear" title="清除">×</span>' +
       '<span class="region-cascader-arrow">▼</span>' +
-      '</div>' +
-      '<div class="region-cascader-panel" id="libQueryCategoryPanel" hidden>' +
-      '<div class="region-cascader-col" id="libQueryCatCol2"></div>' +
-      '<div class="region-cascader-col" id="libQueryCatCol3"></div>' +
-      '<div class="region-cascader-col" id="libQueryCatCol4"></div>' +
       '</div></div></div>';
 
-    var wrap = document.getElementById('libQueryCategoryWrap');
     var trigger = document.getElementById('libQueryCategoryTrigger');
-    var panel = document.getElementById('libQueryCategoryPanel');
     var clearBtn = document.getElementById('libQueryCategoryClear');
 
     trigger.addEventListener('click', function (ev) {
       ev.preventDefault();
       ev.stopPropagation();
-      if (!state.selectedL1) {
-        if (typeof showToast === 'function') showToast('请先选择一级分类', 'warning');
-        return;
-      }
-      if (wrap.classList.contains('is-open')) closeQueryCategoryPanel();
-      else openQueryCategoryPanel();
+      openQueryCategoryModal();
     });
 
     clearBtn.addEventListener('click', function (ev) {
@@ -416,35 +500,7 @@
       ev.stopPropagation();
       state.queryCat = { l2: '', l3: '', l4: '' };
       syncQueryCategoryCascader();
-      closeQueryCategoryPanel();
-    });
-
-    panel.addEventListener('click', function (ev) {
-      var item = ev.target.closest('[data-query-cat-id]');
-      if (!item) return;
-      ev.stopPropagation();
-      var level = parseInt(item.getAttribute('data-query-cat-level'), 10);
-      var id = item.getAttribute('data-query-cat-id') || '';
-      if (level === 2) {
-        state.queryCat = { l2: id, l3: '', l4: '' };
-      } else if (level === 3) {
-        state.queryCat.l3 = id;
-        state.queryCat.l4 = '';
-      } else if (level === 4) {
-        state.queryCat.l4 = id;
-        syncQueryCategoryTrigger();
-        renderQueryCategoryPanel();
-        closeQueryCategoryPanel();
-        return;
-      }
-      syncQueryCategoryTrigger();
-      renderQueryCategoryPanel();
-    });
-
-    document.addEventListener('click', function (ev) {
-      if (!wrap.classList.contains('is-open')) return;
-      if (wrap.contains(ev.target)) return;
-      closeQueryCategoryPanel();
+      closeQueryCategoryModal();
     });
 
     syncQueryCategoryCascader();
@@ -809,27 +865,6 @@
     closeFilterModal(false);
     closeGoodsModal();
     closeDetailModal();
-    function specChip(qty, rateUnit, unit) {
-      return convertText(unit, qty, rateUnit);
-    }
-    var tags = (item.attrs || []).map(function (attr) {
-      return attr && attr.value ? '<span class="mdl-detail-tag">' + escapeHtml(attr.value) + '</span>' : '';
-    }).join('');
-    [specChip(item.minMeasureRateQty, item.minMeasureRateUnit, item.minMeasureUnit), specChip(item.minRateQty, item.minRateUnit, item.minUnit), specChip(item.specRateQty, item.specRateUnit, item.specUnit), specChip(item.packRateQty, item.packRateUnit, item.packUnit)].forEach(function (text) {
-      if (text && text !== item.minMeasureUnit && text !== item.minUnit && text !== item.specUnit && text !== item.packUnit) tags += '<span class="mdl-detail-tag">' + escapeHtml(text) + '</span>';
-    });
-    var minNet = item.measures && item.measures.min ? item.measures.min.netWeight : item.netWeight;
-    [
-      ['最小计量单位', item.minMeasureUnit],
-      ['最小单位', item.minUnit],
-      ['规格单位', item.specUnit],
-      ['采购单位', item.purchaseUnit],
-      ['净重', minNet ? minNet + 'kg' : ''],
-      ['是否称重', item.weigh === '是' ? '称重商品' : (item.weigh === '否' ? '非称重商品' : '')]
-    ].forEach(function (pair) {
-      if (!pair[1]) return;
-      tags += '<span class="mdl-detail-tag">' + escapeHtml(pair[0] + ' ' + pair[1]) + '</span>';
-    });
     var detailCategory = categoryNodeByName(item.category);
     var detailFieldModel = resolveGoodsFieldModel(detailCategory);
     function detailMaybe(key, label, value) {
@@ -865,12 +900,12 @@
       detailField('标准采购价', item.purchasePrice == null || item.purchasePrice === '' ? '' : formatPrice(item.purchasePrice)) +
       detailField('标准采购单位', item.purchaseUnit) +
       '</div>' +
-      (extDetailHtml
-        ? '<div class="mdl-detail-ext"><h3 class="mdl-detail-ext__title">扩展字段</h3>' + extDetailHtml + '</div>'
-        : '') +
       (fieldVisible(detailFieldModel, 'unitCards') || item.minUnit || item.specUnit || item.packUnit || item.minMeasureUnit
         ? detailUnitSection(item)
         : '');
+    var extHtml = extDetailHtml
+      ? '<div class="mdl-detail-ext">' + extDetailHtml + '</div>'
+      : '<div class="mdl-detail-empty">所属一级字段模型暂无扩展字段</div>';
     var copyFields = [
       ['1. 卖点', item.sellingPoint],
       ['2. 产品基本信息介绍', item.productIntro],
@@ -899,15 +934,16 @@
       '</div>' +
       '<div class="mdl-detail-price"><span>标准采购价</span><strong>' + formatPrice(item.purchasePrice) + '</strong>' + detailEditButton('price') + '</div>' +
       '</div>' +
-      '<div class="mdl-detail-tags">' + (tags || '<span class="mdl-detail-empty">暂无标签</span>') + '</div>' +
       '<div class="mdl-detail-tabs" role="tablist">' +
       '<button type="button" class="mdl-detail-tabs__item is-active" data-lib-detail-tab="info">商品信息</button>' +
+      '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="ext">扩展字段</button>' +
       (showCopyTab ? '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="copy">图文信息</button>' : '') +
       '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="ingredient">配料表</button>' +
       '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="nutrition">营养成分</button>' +
       '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="supply">供货关系</button>' +
       '</div>' +
       '<div class="mdl-detail-pane" data-lib-detail-pane="info">' + infoHtml + '</div>' +
+      '<div class="mdl-detail-pane" data-lib-detail-pane="ext" hidden>' + extHtml + '</div>' +
       (showCopyTab ? '<div class="mdl-detail-pane" data-lib-detail-pane="copy" hidden>' + copyHtml + '</div>' : '') +
       '<div class="mdl-detail-pane" data-lib-detail-pane="ingredient" hidden></div>' +
       '<div class="mdl-detail-pane" data-lib-detail-pane="nutrition" hidden></div>' +
@@ -2947,6 +2983,7 @@
     if (hadSelection) state.filter = [];
     state.page = 1;
     closeFilterModal(false);
+    closeQueryCategoryModal();
     closeGoodsModal();
     closeDetailModal();
     renderCategories();
@@ -2965,6 +3002,7 @@
     state.filter = [];
     state.page = 1;
     closeFilterModal(false);
+    closeQueryCategoryModal();
     closeGoodsModal();
     closeDetailModal();
     renderCategories();

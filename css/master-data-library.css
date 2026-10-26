@@ -186,7 +186,7 @@
   border-color: #2f6bff;
 }
 
-/* 查询区商品分类级联（复用 region-cascader 视觉） */
+/* 查询区商品分类：触发框 + 弹窗级联（样式对齐商品分类页） */
 .mdl-query-cat {
   width: 280px;
 }
@@ -199,8 +199,7 @@
   font-size: 13px;
 }
 
-.mdl-query-cat .region-cascader-trigger:hover,
-.mdl-query-cat.region-cascader-wrapper.is-open .region-cascader-trigger {
+.mdl-query-cat .region-cascader-trigger:hover {
   border-color: #2f6bff;
   box-shadow: 0 0 0 1px rgba(47, 107, 255, 0.2);
 }
@@ -220,28 +219,57 @@
   cursor: not-allowed;
 }
 
-.mdl-query-cat .region-cascader-item:hover,
-.mdl-query-cat .region-cascader-item.is-active {
-  background: #eef3ff;
-  color: #2f6bff;
+.mdl-query-cat-modal {
+  width: min(720px, calc(100vw - 48px));
+  max-width: 720px;
 }
 
-.mdl-query-cat .region-cascader-item.is-active .region-cascader-item-arrow {
-  color: #2f6bff;
+.mdl-query-cat-modal .erp-modal__body {
+  padding-bottom: 12px;
 }
 
-.mdl-query .region-cascader-wrapper.is-open {
-  z-index: 5200;
+.mdl-query-cat-cascade {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-height: 320px;
+  max-height: min(52vh, 420px);
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
 }
 
-/* display:flex 会盖掉原生 [hidden]，需显式收起 */
-.mdl-query-cat .region-cascader-panel,
-.mdl-query-cat .region-cascader-panel[hidden] {
-  display: none !important;
+.mdl-query-cat-cascade .product-category-cascade__col {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #f0f0f0;
 }
 
-.mdl-query-cat.is-open .region-cascader-panel {
-  display: flex !important;
+.mdl-query-cat-cascade .product-category-cascade__col:last-child {
+  border-right: none;
+}
+
+.mdl-query-cat-cascade .product-category-cascade__list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.mdl-query-cat-cascade .product-category-cascade__item .product-tag {
+  flex-shrink: 0;
+  padding: 0 4px;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.mdl-query-cat-cascade .mdl-cat-all .product-category-cascade__name {
+  font-weight: 600;
+}
+
+.mdl-query-cat-picked {
+  margin: 10px 0 0;
 }
 
 .mdl-query__actions {
@@ -979,6 +1007,7 @@ select.mdl-filter-input {
   display: grid;
   grid-template-columns: repeat(2, minmax(200px, 280px));
   gap: 12px;
+  margin-bottom: 12px;
 }
 
 .mdl-stat {
@@ -1299,20 +1328,15 @@ select.mdl-filter-input {
 }
 
 .mdl-detail-ext {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid #ebeef5;
-}
-
-.mdl-detail-ext__title {
-  margin: 0 0 12px;
-  color: #303133;
-  font-size: 14px;
-  font-weight: 600;
+  margin: 0;
+  padding: 0;
+  border: none;
 }
 
 .mdl-detail-ext-group + .mdl-detail-ext-group {
   margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
 }
 
 .mdl-detail-ext-group__title {
