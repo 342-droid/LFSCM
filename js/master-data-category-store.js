@@ -737,6 +737,18 @@
         });
       }
       store.save();
+    },
+
+    /** 同级新增时取最大 sort + 10（主数据默认序；列表展示优先用账号个人排序） */
+    nextSiblingSort: function (parentId) {
+      var parentKey = parentId || null;
+      var max = 0;
+      data.categories.forEach(function (item) {
+        if ((item.parent_id || null) !== parentKey) return;
+        var s = parseInt(item.sort, 10);
+        if (!isNaN(s) && s > max) max = s;
+      });
+      return max + 10;
     }
   };
 

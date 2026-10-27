@@ -8,8 +8,130 @@
     selectedL3: null,
     selectedL4: null,
     detailTab: 'info',
-    detailFocusId: null
+    detailFocusId: null,
+    dragSuppressClick: false
   };
+
+  /** 拖动排序按账号隔离：只影响当前账号看到的顺序，不改主数据全局 sort */
+  var ACCOUNT_SORT_STORAGE_KEY = 'md_category_account_sort';
+
+  function getAccountKey() {
+    var user = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+    if (user) {
+      var key = user.id || user.userId || user.account || user.username || user.name;
+      if (key != null && String(key).trim() !== '') return String(key);
+    }
+    return 'default';
+  }
+
+  function parentOrderKey(parentId) {
+    return parentId || '__root__';
+  }
+
+  function readAllAccountSorts() {
+    try {
+      var raw = localStorage.getItem(ACCOUNT_SORT_STORAGE_KEY);
+      if (!raw) return {};
+      var parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function writeAllAccountSorts(all) {
+    try {
+      localStorage.setItem(ACCOUNT_SORT_STORAGE_KEY, JSON.stringify(all || {}));
+    } catch (e) { /* ignore quota */ }
+  }
+
+  function getAccountSiblingOrder(parentId) {
+    var all = readAllAccountSorts();
+    var byAccount = all[getAccountKey()];
+    if (!byAccount) return null;
+    var order = byAccount[parentOrderKey(parentId)];
+    return Array.isArray(order) ? order.slice() : null;
+  }
+
+  function setAccountSiblingOrder(parentId, orderedIds) {
+    var all = readAllAccountSorts();
+    var accountKey = getAccountKey();
+    if (!all[accountKey]) all[accountKey] = {};
+    var key = parentOrderKey(parentId);
+    var prev = Array.isArray(all[accountKey][key]) ? all[accountKey][key] : [];
+    var next = (orderedIds || []).slice();
+    var same = prev.length === next.length && prev.every(function (id, index) { return id === next[index]; });
+    if (same) return false;
+    all[accountKey][key] = next;
+    writeAllAccountSorts(all);
+    return true;
+  }
+
+  function applyAccountSort(nodes, parentId) {
+    var list = (nodes || []).slice();
+    var order = getAccountSiblingOrder(parentId);
+    if (!order || !order.length) {
+      return list.sort(function (a, b) {
+        return (parseInt(a.sort, 10) || 0) - (parseInt(b.sort, 10) || 0);
+      });
+    }
+    var indexMap = {};
+    order.forEach(function (id, index) { indexMap[id] = index; });
+    return list.sort(function (a, b) {
+      var hasA = Object.prototype.hasOwnProperty.call(indexMap, a.id);
+      var hasB = Object.prototype.hasOwnProperty.call(indexMap, b.id);
+      if (hasA && hasB) return indexMap[a.id] - indexMap[b.id];
+      if (hasA) return -1;
+      if (hasB) return 1;
+      return (parseInt(a.sort, 10) || 0) - (parseInt(b.sort, 10) || 0);
+    });
+  }
+
+  function listSiblingsForAccount(parentId) {
+    if (parentId) return applyAccountSort(store.getChildren(parentId), parentId);
+    return applyAccountSort(store.getByLevel(1), null);
+  }
+
+  function getEffectiveSort(node) {
+    if (!node) return 0;
+    var siblings = listSiblingsForAccount(node.parent_id || null);
+    var idx = -1;
+    for (var i = 0; i < siblings.length; i += 1) {
+      if (siblings[i].id === node.id) {
+        idx = i;
+        break;
+      }
+    }
+    return idx >= 0 ? (idx + 1) * 10 : (parseInt(node.sort, 10) || 0);
+  }
+
+  function appendToAccountOrder(parentId, newId) {
+    var order = getAccountSiblingOrder(parentId);
+    if (!order || !order.length) return;
+    if (order.indexOf(newId) >= 0) return;
+    order.push(newId);
+    setAccountSiblingOrder(parentId, order);
+  }
+
+  function removeFromAllAccountOrders(ids) {
+    if (!ids || !ids.length) return;
+    var idSet = {};
+    ids.forEach(function (id) { idSet[id] = true; });
+    var all = readAllAccountSorts();
+    var changed = false;
+    Object.keys(all).forEach(function (accountKey) {
+      var byParent = all[accountKey] || {};
+      Object.keys(byParent).forEach(function (pk) {
+        var before = byParent[pk] || [];
+        var after = before.filter(function (id) { return !idSet[id]; });
+        if (after.length !== before.length) {
+          byParent[pk] = after;
+          changed = true;
+        }
+      });
+    });
+    if (changed) writeAllAccountSorts(all);
+  }
 
   function escapeHtml(str) {
     return String(str || '')
@@ -57,9 +179,21 @@
     return '<span class="product-tag product-tag--on-shelf">显示</span>';
   }
 
-  function renderListItem(node, selectedIdValue, showIcon) {
+  function renderDragHandle() {
+    return (
+      '<span class="product-category-cascade__drag" title="按住拖动排序" aria-label="按住拖动排序">' +
+      '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' +
+      '<circle cx="5" cy="3.5" r="1.35"/><circle cx="11" cy="3.5" r="1.35"/>' +
+      '<circle cx="5" cy="8" r="1.35"/><circle cx="11" cy="8" r="1.35"/>' +
+      '<circle cx="5" cy="12.5" r="1.35"/><circle cx="11" cy="12.5" r="1.35"/>' +
+      '</svg></span>'
+    );
+  }
+
+  function renderListItem(node, selectedIdValue, showIcon, canDrag) {
     var active = node.id === selectedIdValue ? ' is-active' : '';
     var off = node.status === 'off_shelf' ? ' is-off' : '';
+    var dragCls = canDrag ? ' is-draggable' : '';
     var iconHtml = '';
     if (showIcon && node.icon) {
       iconHtml = '<img class="product-category-cascade__avatar" src="' + node.icon + '" alt="">';
@@ -67,7 +201,9 @@
       iconHtml = '<span class="product-category-cascade__avatar product-category-cascade__avatar--placeholder">' + escapeHtml(node.name.charAt(0)) + '</span>';
     }
     return (
-      '<li class="product-category-cascade__item' + active + off + '" data-id="' + node.id + '" data-level="' + node.level + '">' +
+      '<li class="product-category-cascade__item' + active + off + dragCls + '" data-id="' + node.id + '" data-level="' + node.level + '"' +
+      (node.parent_id ? ' data-parent-id="' + node.parent_id + '"' : ' data-parent-id=""') + '>' +
+      (canDrag ? renderDragHandle() : '') +
       iconHtml +
       '<span class="product-category-cascade__name">' + escapeHtml(node.name) + '</span>' +
       renderStatusTag(node.status) +
@@ -78,11 +214,13 @@
 
   function renderColumn(listEl, nodes, selectedIdValue, showIcon, emptyText) {
     if (!listEl) return;
+    var canDrag = nodes.length > 1;
+    listEl.classList.toggle('is-sortable', canDrag);
     if (!nodes.length) {
       listEl.innerHTML = '<li class="product-category-cascade__empty">' + escapeHtml(emptyText) + '</li>';
       return;
     }
-    listEl.innerHTML = nodes.map(function (n) { return renderListItem(n, selectedIdValue, showIcon); }).join('');
+    listEl.innerHTML = nodes.map(function (n) { return renderListItem(n, selectedIdValue, showIcon, canDrag); }).join('');
   }
 
   function syncAddButtons() {
@@ -98,9 +236,13 @@
     var l1 = state.selectedL1 ? store.getNode(state.selectedL1) : null;
     var l2 = state.selectedL2 ? store.getNode(state.selectedL2) : null;
     var l3 = state.selectedL3 ? store.getNode(state.selectedL3) : null;
+    var hintL1 = document.querySelector('.product-category-cascade__col[data-level="1"] .product-category-cascade__hint');
     var hintL2 = document.getElementById('catHintL2');
     var hintL3 = document.getElementById('catHintL3');
     var hintL4 = document.getElementById('catHintL4');
+    if (hintL1) {
+      hintL1.textContent = '拖动排序仅当前账号生效';
+    }
     if (hintL2) hintL2.textContent = l1 ? '所属：' + l1.name : '请先选择一级分类';
     if (hintL3) hintL3.textContent = l2 ? '所属：' + (l1 ? l1.name + ' / ' : '') + l2.name : '请先选择二级分类';
     if (hintL4) {
@@ -203,7 +345,7 @@
         '<dl class="product-category-detail__meta">' +
         '  <div class="product-category-detail__meta-row"><dt>分类编码</dt><dd>' + escapeHtml(node.code || '') + '</dd></div>' +
         '  <div class="product-category-detail__meta-row"><dt>完整路径</dt><dd>' + escapeHtml(node.path) + '</dd></div>' +
-        '  <div class="product-category-detail__meta-row"><dt>排序</dt><dd>' + node.sort + '</dd></div>' +
+        '  <div class="product-category-detail__meta-row"><dt>排序</dt><dd>' + getEffectiveSort(node) + '<span class="product-category-detail__sort-tip">（仅当前账号）</span></dd></div>' +
         '  <div class="product-category-detail__meta-row"><dt>已绑定商品</dt><dd>' + node.product_count + ' 个' + (node.level < 4 ? '（下级汇总）' : '') + '</dd></div>' +
         '  <div class="product-category-detail__meta-row"><dt>创建时间</dt><dd>' + escapeHtml(node.created_at) + '</dd></div>' +
         '</dl>' +
@@ -246,10 +388,10 @@
   }
 
   function renderAll() {
-    var l1List = store.getByLevel(1);
-    var l2List = state.selectedL1 ? store.getChildren(state.selectedL1) : [];
-    var l3List = state.selectedL2 ? store.getChildren(state.selectedL2) : [];
-    var l4List = state.selectedL3 ? store.getChildren(state.selectedL3) : [];
+    var l1List = listSiblingsForAccount(null);
+    var l2List = state.selectedL1 ? listSiblingsForAccount(state.selectedL1) : [];
+    var l3List = state.selectedL2 ? listSiblingsForAccount(state.selectedL2) : [];
+    var l4List = state.selectedL3 ? listSiblingsForAccount(state.selectedL3) : [];
 
     renderColumn(document.getElementById('catListL1'), l1List, state.selectedL1, true, '暂无一级分类');
     renderColumn(
@@ -460,7 +602,6 @@
       '    </div>' +
       '    <div class="product-category-modal__field"><label class="product-category-modal__label" for="masterCatName">' + renderFieldLabel('分类名称', true) + '</label><input class="product-category-modal__input" id="masterCatName" type="text" placeholder="请输入分类名称" value="' + escapeHtml(isEdit ? node.name : '') + '"></div>' +
       renderCategoryIconUploadField(true) +
-      '    <div class="product-category-modal__field"><label class="product-category-modal__label" for="masterCatSort">' + renderFieldLabel('排序', true) + '</label><input class="product-category-modal__input" id="masterCatSort" type="number" min="0" placeholder="请输入排序" value="' + (isEdit ? node.sort : '') + '"></div>' +
       '  </div>' +
       '  <div class="erp-modal__footer"><button type="button" class="erp-btn" data-modal-cancel>取消</button><button type="button" class="erp-btn erp-btn--primary" data-modal-save>确定</button></div></div>';
 
@@ -474,9 +615,6 @@
     backdrop.querySelector('[data-modal-save]').addEventListener('click', function () {
       var name = ((document.getElementById('masterCatName') || {}).value || '').trim();
       var icon = getCategoryIconValue();
-      var sortInput = document.getElementById('masterCatSort');
-      var sortText = sortInput ? String(sortInput.value || '').trim() : '';
-      var sort = parseInt(sortText, 10);
       var parentId = isEdit
         ? (node.parent_id || null)
         : (createLevel === 1 ? null : (parents[parents.length - 1] ? parents[parents.length - 1].id : null));
@@ -493,10 +631,6 @@
         if (typeof showToast === 'function') showToast('请上传分类图标', 'warning');
         return;
       }
-      if (sortText === '' || isNaN(sort) || sort < 0) {
-        if (typeof showToast === 'function') showToast('请输入排序', 'warning');
-        return;
-      }
       var fullCode = parentPrefix + segment;
       var siblings = store.getCategories().filter(function (item) {
         return (item.parent_id || null) === parentId && (!isEdit || item.id !== node.id);
@@ -509,15 +643,10 @@
         if (typeof showToast === 'function') showToast('同级下已存在同名分类', 'warning');
         return;
       }
-      if (siblings.some(function (item) { return parseInt(item.sort, 10) === sort; })) {
-        if (typeof showToast === 'function') showToast('同级下已存在相同排序', 'warning');
-        return;
-      }
 
       if (isEdit) {
         node.name = name;
         node.icon = icon;
-        node.sort = sort;
         store.updateCategory(node);
         closeModal();
         renderAll();
@@ -526,6 +655,7 @@
       }
 
       var parent = createLevel === 1 ? null : parents[parents.length - 1];
+      var sort = store.nextSiblingSort(parentId);
 
       var newId = genId('cat');
       var newNode = {
@@ -548,6 +678,7 @@
         created_at: nowStr()
       };
       store.addCategory(newNode);
+      appendToAccountOrder(parentId, newId);
       setSelectedId(createLevel, newId);
       state.detailFocusId = newId;
       if (createLevel < 4) {
@@ -1268,6 +1399,7 @@
       : '确定删除分类「' + node.name + '」？';
     openWarmConfirm(msg, function () {
       store.removeCategoryTree(id);
+      removeFromAllAccountOrders(descIds);
       [1, 2, 3, 4].forEach(function (level) {
         if (descIds.indexOf(selectedId(level)) >= 0) setSelectedId(level, null);
       });
@@ -1292,6 +1424,196 @@
     }
   }
 
+  function applyListOrderFromDom(listEl) {
+    if (!listEl) return;
+    var items = Array.prototype.slice.call(listEl.querySelectorAll('.product-category-cascade__item[data-id]'));
+    if (items.length < 2) return;
+    var parentAttr = items[0].getAttribute('data-parent-id');
+    var parentId = parentAttr ? parentAttr : null;
+    var orderedIds = items.map(function (item) { return item.getAttribute('data-id'); });
+    var changed = setAccountSiblingOrder(parentId, orderedIds);
+    if (changed) {
+      renderAll();
+      if (typeof showToast === 'function') showToast('排序已更新（仅当前账号）', 'success');
+    }
+  }
+
+  function bindListSort(listEl) {
+    if (!listEl || listEl.getAttribute('data-sort-bound') === '1') return;
+    listEl.setAttribute('data-sort-bound', '1');
+
+    var drag = null;
+    var scrollRaf = 0;
+
+    function visibleSortItems() {
+      return Array.prototype.slice.call(listEl.children).filter(function (el) {
+        return el.classList.contains('product-category-cascade__item') && el.getAttribute('data-id');
+      });
+    }
+
+    function stopAutoScroll() {
+      if (scrollRaf) {
+        cancelAnimationFrame(scrollRaf);
+        scrollRaf = 0;
+      }
+    }
+
+    function positionGhost(clientX, clientY) {
+      if (!drag || !drag.ghost) return;
+      drag.ghost.style.transform =
+        'translate3d(' + (clientX - drag.ghostOffsetX) + 'px,' + (clientY - drag.ghostOffsetY) + 'px,0)';
+    }
+
+    function tickAutoScroll() {
+      scrollRaf = 0;
+      if (!drag || !drag.moved) return;
+      var rect = listEl.getBoundingClientRect();
+      var y = drag.lastY;
+      var edge = 48;
+      var speed = 0;
+      if (y < rect.top + edge) speed = -Math.max(6, (rect.top + edge - y) * 0.35);
+      else if (y > rect.bottom - edge) speed = Math.max(6, (y - (rect.bottom - edge)) * 0.35);
+      if (speed) {
+        listEl.scrollTop += speed;
+        movePlaceholder(y);
+        scrollRaf = requestAnimationFrame(tickAutoScroll);
+      }
+    }
+
+    function movePlaceholder(clientY) {
+      if (!drag || !drag.placeholder) return;
+      var items = visibleSortItems();
+      var placeholder = drag.placeholder;
+      if (!items.length) {
+        listEl.appendChild(placeholder);
+        return;
+      }
+      var insertBeforeEl = null;
+      for (var i = 0; i < items.length; i += 1) {
+        var rect = items[i].getBoundingClientRect();
+        if (clientY < rect.top + rect.height * 0.45) {
+          insertBeforeEl = items[i];
+          break;
+        }
+      }
+      if (insertBeforeEl) {
+        if (placeholder.nextSibling !== insertBeforeEl) listEl.insertBefore(placeholder, insertBeforeEl);
+      } else {
+        var last = items[items.length - 1];
+        if (last.nextSibling !== placeholder) listEl.insertBefore(placeholder, last.nextSibling);
+      }
+    }
+
+    function endDrag(commit) {
+      if (!drag) return;
+      var current = drag;
+      drag = null;
+      stopAutoScroll();
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+      if (current.ghost && current.ghost.parentNode) current.ghost.parentNode.removeChild(current.ghost);
+      if (commit && current.moved && current.placeholder && current.placeholder.parentNode) {
+        current.item.classList.remove('is-drag-source');
+        listEl.insertBefore(current.item, current.placeholder);
+        current.placeholder.parentNode.removeChild(current.placeholder);
+        listEl.classList.remove('is-sorting');
+        document.body.classList.remove('is-category-sorting');
+        applyListOrderFromDom(listEl);
+        state.dragSuppressClick = true;
+        setTimeout(function () { state.dragSuppressClick = false; }, 80);
+        return;
+      }
+      if (current.placeholder && current.placeholder.parentNode) {
+        listEl.insertBefore(current.item, current.placeholder);
+        current.placeholder.parentNode.removeChild(current.placeholder);
+      } else if (current.item && !current.item.parentNode) {
+        listEl.appendChild(current.item);
+      }
+      current.item.classList.remove('is-drag-source');
+      listEl.classList.remove('is-sorting');
+      document.body.classList.remove('is-category-sorting');
+      state.dragSuppressClick = false;
+    }
+
+    function beginDragVisual(e) {
+      var rect = drag.item.getBoundingClientRect();
+      drag.ghostOffsetX = Math.min(Math.max(e.clientX - rect.left, 10), Math.max(rect.width - 10, 10));
+      drag.ghostOffsetY = Math.min(Math.max(e.clientY - rect.top, 10), Math.max(rect.height - 10, 10));
+      var ghost = drag.item.cloneNode(true);
+      ghost.className = 'product-category-cascade__item product-category-cascade__ghost';
+      ghost.removeAttribute('data-id');
+      ghost.style.width = rect.width + 'px';
+      ghost.style.height = rect.height + 'px';
+      document.body.appendChild(ghost);
+      drag.ghost = ghost;
+      var placeholder = document.createElement('li');
+      placeholder.className = 'product-category-cascade__placeholder';
+      placeholder.setAttribute('aria-hidden', 'true');
+      placeholder.style.height = rect.height + 'px';
+      listEl.insertBefore(placeholder, drag.item);
+      drag.placeholder = placeholder;
+      drag.item.classList.add('is-drag-source');
+      listEl.removeChild(drag.item);
+      listEl.classList.add('is-sorting');
+      document.body.classList.add('is-category-sorting');
+      positionGhost(e.clientX, e.clientY);
+      movePlaceholder(e.clientY);
+    }
+
+    function onPointerMove(e) {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      drag.lastY = e.clientY;
+      var dx = e.clientX - drag.startX;
+      var dy = e.clientY - drag.startY;
+      if (!drag.moved) {
+        if (dx * dx + dy * dy < 16) return;
+        drag.moved = true;
+        state.dragSuppressClick = true;
+        beginDragVisual(e);
+      }
+      e.preventDefault();
+      positionGhost(e.clientX, e.clientY);
+      movePlaceholder(e.clientY);
+      if (!scrollRaf) scrollRaf = requestAnimationFrame(tickAutoScroll);
+    }
+
+    function onPointerUp(e) {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      endDrag(true);
+    }
+
+    listEl.addEventListener('pointerdown', function (e) {
+      if (drag) return;
+      if (e.button != null && e.button !== 0) return;
+      if (!listEl.classList.contains('is-sortable')) return;
+      var item = e.target.closest('.product-category-cascade__item[data-id]');
+      if (!item || !listEl.contains(item)) return;
+      if (listEl.querySelectorAll('.product-category-cascade__item[data-id]').length < 2) return;
+      // 从手柄或左侧热区起拖，避免点名称/滚动列表时误触
+      var fromHandle = !!e.target.closest('.product-category-cascade__drag');
+      var itemRect = item.getBoundingClientRect();
+      var fromHotzone = (e.clientX - itemRect.left) <= 40;
+      if (!fromHandle && !fromHotzone) return;
+      e.preventDefault();
+      drag = {
+        item: item,
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        lastY: e.clientY,
+        moved: false,
+        ghost: null,
+        placeholder: null,
+        ghostOffsetX: 0,
+        ghostOffsetY: 0
+      };
+      window.addEventListener('pointermove', onPointerMove, { passive: false });
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+    });
+  }
+
   function bindEvents() {
     var addLevels = [
       { id: 'catAddL1', level: 1, need: 0, warn: '' },
@@ -1314,7 +1636,10 @@
     ['catListL1', 'catListL2', 'catListL3', 'catListL4'].forEach(function (listId) {
       var el = document.getElementById(listId);
       if (!el) return;
+      bindListSort(el);
       el.addEventListener('click', function (e) {
+        if (state.dragSuppressClick) return;
+        if (e.target.closest('.product-category-cascade__drag')) return;
         var item = e.target.closest('.product-category-cascade__item[data-id]');
         if (!item) return;
         selectLevel(parseInt(item.getAttribute('data-level'), 10), item.getAttribute('data-id'));

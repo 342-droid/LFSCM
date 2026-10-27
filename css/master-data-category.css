@@ -23,6 +23,117 @@
   line-height: 16px;
 }
 
+/* 同级拖动排序（按住手柄；顺序仅当前账号） */
+.master-data-category-cascade .product-category-cascade__drag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 36px;
+  margin: -6px 0 -6px -2px;
+  border-radius: 4px;
+  color: #c0c4cc;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.master-data-category-cascade .product-category-cascade__drag svg {
+  display: block;
+  fill: currentColor;
+  pointer-events: none;
+}
+
+.master-data-category-cascade .product-category-cascade__item.is-draggable:hover .product-category-cascade__drag,
+.master-data-category-cascade .product-category-cascade__item.is-active .product-category-cascade__drag {
+  color: #909399;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.master-data-category-cascade .product-category-cascade__drag:active {
+  cursor: grabbing;
+  color: var(--color-primary, #ff7019);
+  background: #fff0e6;
+}
+
+.master-data-category-cascade .product-category-cascade__list.is-sortable .product-category-cascade__item.is-draggable {
+  padding-left: 4px;
+  position: relative;
+}
+
+.master-data-category-cascade .product-category-cascade__list.is-sortable .product-category-cascade__item.is-draggable::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  cursor: grab;
+}
+
+.master-data-category-cascade .product-category-cascade__list.is-sorting {
+  cursor: grabbing;
+}
+
+.master-data-category-cascade .product-category-cascade__list.is-sorting .product-category-cascade__item {
+  transition: margin 0.12s ease, background-color 0.12s ease;
+}
+
+.master-data-category-cascade .product-category-cascade__placeholder {
+  list-style: none;
+  margin: 0 0 4px;
+  border: 1.5px dashed var(--color-primary, #ff7019);
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, rgba(255, 112, 25, 0.14), rgba(255, 112, 25, 0.05));
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.product-category-cascade__ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 10px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #ffd8bf;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(255, 112, 25, 0.2);
+  opacity: 0.98;
+  pointer-events: none;
+  box-sizing: border-box;
+  will-change: transform;
+  transform: translate3d(-9999px, -9999px, 0);
+}
+
+.product-category-cascade__ghost .product-category-cascade__drag {
+  color: var(--color-primary, #ff7019);
+  background: #fff0e6;
+  cursor: grabbing;
+}
+
+body.is-category-sorting {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+body.is-category-sorting * {
+  cursor: grabbing !important;
+}
+
+.product-category-detail__sort-tip {
+  margin-left: 6px;
+  color: #909399;
+  font-size: 12px;
+  font-weight: 400;
+}
+
 .master-data-attr__head {
   display: flex;
   align-items: center;
