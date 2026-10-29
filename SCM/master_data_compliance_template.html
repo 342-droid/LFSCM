@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>冷丰 - 合规模板</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/lf-mdm-from-master.css">
+    <link rel="stylesheet" href="../css/lf-product.css">
+    <link rel="stylesheet" href="../css/master-data-brand.css">
+    <link rel="stylesheet" href="../css/lf-mdm-biz-tip.css">
+    <link rel="stylesheet" href="../css/master-data-compliance.css">
+</head>
+<body>
+    <div id="sidebar-container"></div>
+    <script src="../js/path-prefix.js"></script>
+    <script src="../js/master-data-sidebar.js"></script>
+    <div id="header-container"></div>
+    <div class="container">
+        <main class="main-content">
+            <div class="product-page master-data-brand-page">
+                <div class="product-page-body">
+                    <section class="erp-page__card master-data-compliance">
+                        <div class="mdb-toolbar">
+                            <span class="mdb-toolbar__title">合规模板</span>
+                            <div class="mdb-toolbar__actions">
+                                <button type="button" class="mdb-btn mdb-btn--ghost" id="complianceWarnBtn">预警设置</button>
+                                <button type="button" class="mdb-btn mdb-btn--primary" id="complianceTplAddBtn">+ 新建模板</button>
+                            </div>
+                        </div>
+                        <div class="mdb-pane">
+                            <div class="mdm-biz-tip" role="note">按<strong>管控类型</strong>配置必证清单；模板变更后，已有档案包按最新清单重新计算齐套状态。</div>
+                            <form class="mdb-query" id="complianceTplQueryForm">
+                                <label class="mdb-query__field">模板名称
+                                    <input type="text" id="complianceTplQueryName" placeholder="请输入模板名称" autocomplete="off">
+                                </label>
+                                <label class="mdb-query__field">管控类型编码
+                                    <input type="text" id="complianceTplQueryCode" placeholder="请输入编码" autocomplete="off">
+                                </label>
+                                <label class="mdb-query__field">状态
+                                    <select id="complianceTplQueryStatus">
+                                        <option value="">全部</option>
+                                        <option value="active">启用</option>
+                                        <option value="disabled">停用</option>
+                                    </select>
+                                </label>
+                                <div class="mdb-query__actions">
+                                    <button type="submit" class="mdb-btn mdb-btn--primary">查询</button>
+                                    <button type="button" class="mdb-btn mdb-btn--ghost" id="complianceTplQueryReset">重置</button>
+                                </div>
+                            </form>
+                            <div class="mdb-table-wrap">
+                                <table class="mdb-table">
+                                    <thead>
+                                        <tr>
+                                            <th>管控类型编码</th>
+                                            <th>模板名称</th>
+                                            <th>清单项</th>
+                                            <th>状态</th>
+                                            <th>更新时间</th>
+                                            <th class="mdb-table__op">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="complianceTplTableBody"></tbody>
+                                </table>
+                            </div>
+                            <div class="product-pagination" id="complianceTplPagination">
+                                <span id="complianceTplPaginationTotal">共 0 条</span>
+                                <div class="product-pagination__right">
+                                    <select class="product-pagination__size" id="complianceTplPageSize" aria-label="每页条数">
+                                        <option value="20" selected>20条/页</option>
+                                        <option value="50">50条/页</option>
+                                        <option value="100">100条/页</option>
+                                    </select>
+                                    <div class="product-pagination__pages" id="complianceTplPaginationPages"></div>
+                                    <label class="product-pagination__goto">
+                                        前往
+                                        <input id="complianceTplPageGoto" type="text" value="1" inputmode="numeric" aria-label="前往页码">
+                                        页
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="../js/common.js"></script>
+    <script src="../js/master-data-supplier-store.js"></script>
+    <script src="../js/master-data-compliance-store.js"></script>
+    <script src="../js/master-data-compliance-template.js"></script>
+</body>
+</html>

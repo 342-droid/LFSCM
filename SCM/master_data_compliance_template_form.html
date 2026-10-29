@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>冷丰 - 合规模板编辑</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/lf-mdm-from-master.css">
+    <link rel="stylesheet" href="../css/lf-product.css">
+    <link rel="stylesheet" href="../css/lf-mdm-edit-page.css">
+    <link rel="stylesheet" href="../css/lf-mdm-points-rule.css">
+    <link rel="stylesheet" href="../css/lf-mdm-biz-tip.css">
+    <link rel="stylesheet" href="../css/master-data-compliance.css">
+</head>
+<body>
+    <div id="sidebar-container"></div>
+    <script src="../js/path-prefix.js"></script>
+    <script src="../js/master-data-sidebar.js"></script>
+    <div id="header-container"></div>
+    <div class="container">
+        <main class="main-content mdm-edit-page">
+            <div class="compliance-form-wrap">
+                <div class="pts-rule-card">
+                    <div class="pts-rule-card__title" id="complianceTplFormTitle">新建合规模板</div>
+                    <div class="pts-rule-card__body">
+                        <div class="mdm-biz-tip mdm-biz-tip--flush" role="note">模板变更后，已有档案包按最新清单重新计算齐套状态。</div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label"><span class="erp-req">*</span>管控类型编码</div>
+                            <div class="pts-rule-field__control">
+                                <input class="erp-input" id="tplFormCode" maxlength="32" placeholder="英数下划线，如 COSMETIC_SPECIAL" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label"><span class="erp-req">*</span>模板名称</div>
+                            <div class="pts-rule-field__control">
+                                <input class="erp-input" id="tplFormName" maxlength="40" placeholder="请输入模板名称" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label"><span class="erp-req">*</span>状态</div>
+                            <div class="pts-rule-field__control">
+                                <select class="erp-select" id="tplFormStatus">
+                                    <option value="active">启用</option>
+                                    <option value="disabled">停用</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label">说明</div>
+                            <div class="pts-rule-field__control">
+                                <textarea class="erp-input" id="tplFormTip" maxlength="200" placeholder="选填"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="pts-rule-card">
+                    <div class="pts-rule-card__title">清单项
+                        <button type="button" class="mdb-btn mdb-btn--primary" id="tplItemAddBtn" style="margin-left:auto;height:28px;">+ 添加清单项</button>
+                    </div>
+                    <div class="pts-rule-card__body">
+                        <div class="compliance-item-table-wrap">
+                            <table class="compliance-item-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:56px">排序</th>
+                                        <th>项编码</th>
+                                        <th>项名称</th>
+                                        <th>来源</th>
+                                        <th>主体角色</th>
+                                        <th>允许证照类型</th>
+                                        <th>必要程度</th>
+                                        <th>效期预警</th>
+                                        <th class="compliance-item-table__op">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tplItemTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mdm-edit-page__footer pts-rule-actions">
+                <button type="button" class="erp-btn" id="tplFormCancel">取消</button>
+                <button type="button" class="erp-btn erp-btn--primary" id="tplFormSave">保存</button>
+            </div>
+        </main>
+    </div>
+    <script src="../js/common.js"></script>
+    <script src="../js/master-data-supplier-store.js"></script>
+    <script src="../js/master-data-compliance-store.js"></script>
+    <script src="../js/master-data-compliance-template-form.js"></script>
+</body>
+</html>

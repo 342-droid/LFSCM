@@ -15,6 +15,8 @@
 
     const supplyChainItems = [
         { href: 'master_data_supplier.html', text: '供应商档案' },
+        { href: 'master_data_compliance_template.html', text: '合规模板' },
+        { href: 'master_data_compliance_dossier.html', text: '产品合规档案' },
         { href: 'master_data_supply.html', text: '供货关系' }
     ];
 

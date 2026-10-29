@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>冷丰 - 产品合规档案</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/lf-mdm-from-master.css">
+    <link rel="stylesheet" href="../css/lf-product.css">
+    <link rel="stylesheet" href="../css/master-data-brand.css">
+    <link rel="stylesheet" href="../css/lf-mdm-biz-tip.css">
+    <link rel="stylesheet" href="../css/master-data-compliance.css">
+</head>
+<body>
+    <div id="sidebar-container"></div>
+    <script src="../js/path-prefix.js"></script>
+    <script src="../js/master-data-sidebar.js"></script>
+    <div id="header-container"></div>
+    <div class="container">
+        <main class="main-content">
+            <div class="product-page master-data-brand-page">
+                <div class="product-page-body">
+                    <section class="erp-page__card master-data-compliance">
+                        <div class="mdb-toolbar">
+                            <span class="mdb-toolbar__title">产品合规档案</span>
+                            <button type="button" class="mdb-btn mdb-btn--primary" id="complianceDosAddBtn">+ 新建档案包</button>
+                        </div>
+                        <div class="mdb-pane">
+                            <div class="mdm-biz-tip" role="note">特殊化妆品建议<strong>一色号一份注册证档案包</strong>；工厂执照请在供应商主体证照中维护，本页仅引用。</div>
+                            <div class="mdb-compliance-stats" id="complianceDosStats"></div>
+                            <form class="mdb-query" id="complianceDosQueryForm">
+                                <label class="mdb-query__field">证号
+                                    <input type="text" id="dosQueryCertNo" placeholder="注册证号/备案号" autocomplete="off">
+                                </label>
+                                <label class="mdb-query__field">合规品名
+                                    <input type="text" id="dosQueryName" placeholder="请输入合规品名" autocomplete="off">
+                                </label>
+                                <label class="mdb-query__field">管控类型
+                                    <select id="dosQueryType"><option value="">全部</option></select>
+                                </label>
+                                <label class="mdb-query__field">档案状态
+                                    <select id="dosQueryStatus">
+                                        <option value="">全部</option>
+                                        <option value="draft">草稿</option>
+                                        <option value="active">生效</option>
+                                        <option value="void">作废</option>
+                                    </select>
+                                </label>
+                                <label class="mdb-query__field">齐套状态
+                                    <select id="dosQueryComplete">
+                                        <option value="">全部</option>
+                                        <option value="complete">齐全</option>
+                                        <option value="missing">缺失</option>
+                                    </select>
+                                </label>
+                                <label class="mdb-query__field">效期状态
+                                    <select id="dosQueryExpiry">
+                                        <option value="">全部</option>
+                                        <option value="valid">有效</option>
+                                        <option value="expiring">即将过期</option>
+                                        <option value="expired">已过期</option>
+                                    </select>
+                                </label>
+                                <div class="mdb-query__actions">
+                                    <button type="submit" class="mdb-btn mdb-btn--primary">查询</button>
+                                    <button type="button" class="mdb-btn mdb-btn--ghost" id="complianceDosQueryReset">重置</button>
+                                </div>
+                            </form>
+                            <div class="mdb-table-wrap">
+                                <table class="mdb-table">
+                                    <thead>
+                                        <tr>
+                                            <th>档案编号</th>
+                                            <th>证号</th>
+                                            <th>合规品名</th>
+                                            <th>管控类型</th>
+                                            <th>委托方</th>
+                                            <th>生产方</th>
+                                            <th>映射货号数</th>
+                                            <th>齐套</th>
+                                            <th>效期</th>
+                                            <th>档案状态</th>
+                                            <th class="mdb-table__op">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="complianceDosTableBody"></tbody>
+                                </table>
+                            </div>
+                            <div class="product-pagination">
+                                <span id="complianceDosPaginationTotal">共 0 条</span>
+                                <div class="product-pagination__right">
+                                    <select class="product-pagination__size" id="complianceDosPageSize" aria-label="每页条数">
+                                        <option value="20" selected>20条/页</option>
+                                        <option value="50">50条/页</option>
+                                        <option value="100">100条/页</option>
+                                    </select>
+                                    <div class="product-pagination__pages" id="complianceDosPaginationPages"></div>
+                                    <label class="product-pagination__goto">
+                                        前往
+                                        <input id="complianceDosPageGoto" type="text" value="1" inputmode="numeric" aria-label="前往页码">
+                                        页
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="../js/common.js"></script>
+    <script src="../js/master-data-supplier-store.js"></script>
+    <script src="../js/master-data-compliance-store.js"></script>
+    <script src="../js/master-data-compliance-dossier.js"></script>
+</body>
+</html>

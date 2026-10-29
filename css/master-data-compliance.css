@@ -1,0 +1,465 @@
+/* 产品合规档案 / 合规模板 */
+
+.master-data-compliance {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 132px);
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.mdb-compliance-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.mdb-compliance-stat {
+  min-width: 120px;
+  padding: 10px 14px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  background: #fafbfc;
+}
+
+.mdb-compliance-stat__label {
+  display: block;
+  color: #909399;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.mdb-compliance-stat__value {
+  color: #303133;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.mdb-compliance-stat--warn .mdb-compliance-stat__value { color: #e6a23c; }
+.mdb-compliance-stat--danger .mdb-compliance-stat__value { color: #f56c6c; }
+.mdb-compliance-stat--ok .mdb-compliance-stat__value { color: #67c23a; }
+
+.mdb-status--complete,
+.mdb-status--valid { background: #f0f9eb; color: #67c23a; }
+.mdb-status--missing,
+.mdb-status--expired,
+.mdb-status--void { background: #fef0f0; color: #f56c6c; }
+.mdb-status--expiring,
+.mdb-status--unfiled { background: #fdf6ec; color: #e6a23c; }
+.mdb-status--draft,
+.mdb-status--none { background: #f4f4f5; color: #909399; }
+.mdb-status--active { background: #ecf5ff; color: #409eff; }
+
+.mdb-toolbar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mdm-edit-page .compliance-form-wrap {
+  width: 100%;
+  padding-bottom: 24px;
+}
+
+.compliance-item-table-wrap {
+  overflow: auto;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+}
+
+.compliance-item-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.compliance-item-table th,
+.compliance-item-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #ebeef5;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.compliance-item-table th {
+  background: #fafafa;
+  color: #606266;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.compliance-item-table .erp-input,
+.compliance-item-table .erp-select {
+  height: 32px;
+  width: 100%;
+  min-width: 88px;
+  box-sizing: border-box;
+}
+
+.compliance-item-table__op {
+  white-space: nowrap;
+}
+
+.compliance-item-table--summary td {
+  vertical-align: top;
+}
+
+.compliance-item-summary__ord {
+  color: #909399;
+  font-variant-numeric: tabular-nums;
+}
+
+.compliance-item-summary__name {
+  color: #303133;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.compliance-item-summary__code {
+  margin-top: 2px;
+  color: #909399;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.compliance-item-summary__meta {
+  max-width: 240px;
+  color: #606266;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.compliance-check-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding-top: 6px;
+}
+
+.compliance-check-list label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #606266;
+  font-size: 13px;
+  line-height: 36px;
+}
+
+/* 清单项编辑层（方案 A） */
+.erp-modal.compliance-item-drawer {
+  width: min(520px, 94vw);
+  max-width: min(520px, 94vw);
+}
+
+.compliance-item-drawer__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.compliance-item-drawer__row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.compliance-item-drawer__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  flex: 1;
+  padding-top: 6px;
+}
+
+.compliance-item-drawer__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #606266;
+  line-height: 24px;
+}
+
+.compliance-item-drawer__advanced {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px dashed #dcdfe6;
+  border-radius: 4px;
+  background: #fafafa;
+}
+
+.compliance-item-drawer__advanced summary {
+  cursor: pointer;
+  color: #606266;
+  font-size: 13px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.compliance-item-drawer__upload-tip {
+  margin: 0;
+}
+
+.compliance-upload-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.compliance-upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px dashed #dcdfe6;
+  border-radius: 4px;
+  background: #fafafa;
+}
+
+.compliance-upload-row img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #ebeef5;
+  background: #fff;
+}
+
+.compliance-map-table .erp-input {
+  height: 32px;
+}
+
+.compliance-detail-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 13px;
+}
+
+.compliance-detail-item__name {
+  color: #303133;
+}
+
+.compliance-detail-item__meta {
+  color: #909399;
+  font-size: 12px;
+}
+
+.mdb-query__field--wide input,
+.mdb-query__field--wide select {
+  width: 200px;
+}
+
+/* 合规模板 · 列表内新建/编辑弹窗 */
+.erp-modal.mdb-compliance-tpl-modal {
+  width: min(1080px, 96vw);
+  max-width: min(1080px, 96vw);
+  max-height: min(90vh, 900px);
+}
+
+.mdb-compliance-tpl-modal .erp-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: auto;
+}
+
+.mdb-compliance-tpl-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.mdb-compliance-tpl-form .mdb-field--wide {
+  grid-column: 1 / -1;
+}
+
+.mdb-compliance-tpl-form textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.mdb-compliance-tpl-items__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.mdb-compliance-tpl-items__head strong {
+  font-size: 14px;
+  color: #303133;
+}
+
+/* 合规档案 · 列表内新建/编辑弹窗 */
+.erp-modal.mdb-compliance-dos-modal {
+  width: min(960px, 96vw);
+  max-width: min(960px, 96vw);
+  max-height: min(92vh, 920px);
+}
+
+.mdb-compliance-dos-modal .erp-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: auto;
+}
+
+.mdb-compliance-dos-section__title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.mdb-compliance-dos-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.mdb-compliance-dos-form .mdb-field--check {
+  align-items: center;
+}
+
+.mdb-compliance-dos-form .mdb-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #606266;
+}
+
+.mdb-compliance-dos-tip {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+}
+
+.mdb-compliance-dos-tip a {
+  color: #2f6bff;
+}
+
+.mdb-compliance-dos-maps__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+/* 供应商 · 主体证照附件缩略图 */
+.mdb-cert-thumbs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+}
+
+.mdb-cert-thumbs img {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #ebeef5;
+  background: #fff;
+}
+
+.mdb-cert-thumbs__more {
+  font-size: 12px;
+  color: #909399;
+}
+
+.mdb-cert-ocr-lead,
+.mdb-cert-ocr-note {
+  margin: 6px 0 0;
+}
+
+.mdb-cert-ocr-note {
+  color: #8a5a2b;
+}
+
+.mdb-cert-ocr-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin-top: 8px;
+}
+
+.mdb-cert-ocr-cols__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ff7019;
+  margin-bottom: 2px;
+}
+
+.mdb-cert-ocr-list {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.mdb-cert-ocr-list li {
+  margin: 2px 0;
+}
+
+.mdb-field.is-ocr-off {
+  opacity: 0.72;
+}
+
+@media (max-width: 640px) {
+  .mdb-cert-ocr-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mdb-ocr-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 2px;
+  background: #fff7f0;
+  border: 1px solid #ffe0c2;
+  color: #ff7019;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 16px;
+  vertical-align: middle;
+}
+
+.mdb-cert-ocr-status {
+  margin: 0 0 4px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: #f4f8ff;
+  border: 1px solid #d6e4ff;
+  color: #4060a0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.mdb-cert-ocr-status strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #2f6bff;
+}
+
+.mdb-cert-ocr-status p {
+  margin: 0;
+}
+
+.mdb-cert-modal .mdb-field > span i {
+  color: #f56c6c;
+  font-style: normal;
+  margin-right: 2px;
+}

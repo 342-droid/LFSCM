@@ -33,7 +33,7 @@
     goodsEditing: null,
     goodsSpecIndex: null,
     goodsCategoryId: null,
-    query: { spu: '', sku: '', barcode: '', name: '', brand: '', status: '', categoryId: '' },
+    query: { spu: '', sku: '', barcode: '', name: '', brand: '', status: '', compliance: '', categoryId: '' },
     /** 查询区商品分类选择（点查询后写入 query.categoryId） */
     queryCat: { l2: '', l3: '', l4: '' },
     /** 分类选择弹窗内草稿 */
@@ -235,7 +235,58 @@
 
   function hasActiveQuery() {
     var query = state.query || {};
-    return !!(query.spu || query.sku || query.barcode || query.name || query.brand || query.status || query.categoryId || activeFilters().length);
+    return !!(query.spu || query.sku || query.barcode || query.name || query.brand || query.status || query.compliance || query.categoryId || activeFilters().length);
+  }
+
+  function complianceAggregate(item) {
+    var cStore = window.MasterDataComplianceStore;
+    if (!cStore || !item || !item.sku) return { status: 'none', label: '不管控' };
+    var flag = cStore.getGoodsFlag(item.sku);
+    if (!flag.enabled && item.complianceEnabled) {
+      return cStore.goodsAggregate(item.sku);
+    }
+    return cStore.goodsAggregate(item.sku);
+  }
+
+  function renderCompliancePane(item) {
+    var cStore = window.MasterDataComplianceStore;
+    var agg = complianceAggregate(item);
+    var flag = cStore ? cStore.getGoodsFlag(item.sku) : { enabled: false, type: '' };
+    var enabled = !!(flag.enabled || item.complianceEnabled);
+    var typeCode = flag.type || item.complianceType || '';
+    var tpl = cStore && typeCode ? cStore.findTemplate(typeCode) : null;
+    var dossiers = cStore
+      ? cStore.dossiers().filter(function (d) {
+          return (d.mappings || []).some(function (m) { return m.sku === item.sku; });
+        })
+      : [];
+    var rows = dossiers.map(function (d) {
+      var complete = cStore.dossierCompleteness(d);
+      var expiry = cStore.dossierExpiry(d);
+      function lab(v, kind) {
+        if (kind === 'c') return v === 'complete' ? '齐全' : (v === 'missing' ? '缺失' : '—');
+        if (!v) return '—';
+        return v === 'valid' ? '有效' : (v === 'expiring' ? '即将过期' : '已过期');
+      }
+      return '<tr><td>' + escapeHtml(d.code) + '</td><td>' + escapeHtml(d.certNo) + '</td><td>' + escapeHtml(d.productName) + '</td>' +
+        '<td>' + escapeHtml(d.status === 'active' ? '生效' : (d.status === 'draft' ? '草稿' : '作废')) + '</td>' +
+        '<td><span class="mdb-status mdb-status--' + (complete || 'draft') + '">' + lab(complete, 'c') + '</span></td>' +
+        '<td><span class="mdb-status mdb-status--' + (expiry || 'draft') + '">' + lab(expiry, 'e') + '</span></td>' +
+        '<td class="mdb-table__op"><a class="mdb-op-btn" href="' +
+        ((window.scmPath && window.scmPath.page) ? window.scmPath.page('master_data_compliance_dossier_form.html') : 'master_data_compliance_dossier_form.html') +
+        '?id=' + encodeURIComponent(d.id) + '">查看</a></td></tr>';
+    }).join('') || '<tr><td class="mdb-table-empty" colspan="7">' + (enabled ? '尚未建立合规档案' : '未开启合规管控') + '</td></tr>';
+    var createHref = ((window.scmPath && window.scmPath.page) ? window.scmPath.page('master_data_compliance_dossier_form.html') : 'master_data_compliance_dossier_form.html') +
+      '?sku=' + encodeURIComponent(item.sku || '');
+    return '<div style="margin-bottom:12px;font-size:13px;color:#606266">聚合状态：' +
+      '<span class="mdb-status mdb-status--' + agg.status + '">' + escapeHtml(agg.label) + '</span> · 管控类型：' +
+      escapeHtml(tpl ? tpl.name : (enabled ? (typeCode || '—') : '不管控')) +
+      '</div>' +
+      (enabled
+        ? '<div style="margin-bottom:10px"><a class="mdb-btn mdb-btn--primary" href="' + createHref + '">去创建档案包</a></div>'
+        : '') +
+      '<div class="mdb-table-wrap"><table class="mdb-table"><thead><tr><th>档案编号</th><th>证号</th><th>合规品名</th><th>档案状态</th><th>齐套</th><th>效期</th><th class="mdb-table__op">操作</th></tr></thead><tbody>' +
+      rows + '</tbody></table></div>';
   }
 
   function matchesQuery(item) {
@@ -250,6 +301,7 @@
     if (!contains(item.name, query.name)) return false;
     if (query.brand && item.brand !== query.brand) return false;
     if (query.status && goodsStatus(item) !== query.status) return false;
+    if (query.compliance && complianceAggregate(item).status !== query.compliance) return false;
     return true;
   }
 
@@ -279,6 +331,7 @@
       name: valueOf('libQueryName'),
       brand: valueOf('libQueryBrand'),
       status: valueOf('libQueryStatus'),
+      compliance: valueOf('libQueryCompliance'),
       categoryId: queryCatDeepestId()
     };
   }
@@ -290,12 +343,12 @@
   }
 
   function resetQuery() {
-    ['libQuerySpu', 'libQuerySku', 'libQueryBarcode', 'libQueryName', 'libQueryBrand', 'libQueryStatus'].forEach(function (id) {
+    ['libQuerySpu', 'libQuerySku', 'libQueryBarcode', 'libQueryName', 'libQueryBrand', 'libQueryStatus', 'libQueryCompliance'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.value = '';
     });
     state.queryCat = { l2: '', l3: '', l4: '' };
-    state.query = { spu: '', sku: '', barcode: '', name: '', brand: '', status: '', categoryId: '' };
+    state.query = { spu: '', sku: '', barcode: '', name: '', brand: '', status: '', compliance: '', categoryId: '' };
     syncQueryCategoryCascader();
     state.page = 1;
     renderLibrary();
@@ -941,6 +994,7 @@
       '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="ingredient">配料表</button>' +
       '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="nutrition">营养成分</button>' +
       '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="supply">供货关系</button>' +
+      '<button type="button" class="mdl-detail-tabs__item" data-lib-detail-tab="compliance">合规资质</button>' +
       '</div>' +
       '<div class="mdl-detail-pane" data-lib-detail-pane="info">' + infoHtml + '</div>' +
       '<div class="mdl-detail-pane" data-lib-detail-pane="ext" hidden>' + extHtml + '</div>' +
@@ -948,6 +1002,7 @@
       '<div class="mdl-detail-pane" data-lib-detail-pane="ingredient" hidden></div>' +
       '<div class="mdl-detail-pane" data-lib-detail-pane="nutrition" hidden></div>' +
       '<div class="mdl-detail-pane" data-lib-detail-pane="supply" hidden></div>' +
+      '<div class="mdl-detail-pane" data-lib-detail-pane="compliance" hidden>' + renderCompliancePane(item) + '</div>' +
       '</div></div>';
     backdrop.addEventListener('click', function (ev) {
       if (ev.target === backdrop || ev.target.closest('[data-lib-detail-close]')) {
@@ -1051,6 +1106,14 @@
         renderNutritionPane(item);
       });
     }
+    var supplyPane = backdrop.querySelector('[data-lib-detail-pane="supply"]');
+    if (supplyPane) {
+      supplyPane.addEventListener('click', function (ev) {
+        if (ev.target.closest('[data-lib-supply-add]')) {
+          openSupplyCreateFromDetail(item);
+        }
+      });
+    }
     document.body.appendChild(backdrop);
     renderIngredientPane(item);
     renderNutritionPane(item);
@@ -1085,6 +1148,21 @@
     return supplyBadge(value || '—', 'disabled');
   }
 
+  function openSupplyCreateFromDetail(item) {
+    var ui = window.MasterDataSupplyUI;
+    if (!ui || typeof ui.openCreate !== 'function') {
+      if (typeof showToast === 'function') showToast('供货关系功能未加载', 'warning');
+      return;
+    }
+    ui.openCreate({
+      product: item,
+      nested: true,
+      onSaved: function () {
+        renderSupplyPane(item);
+      }
+    });
+  }
+
   function renderSupplyPane(item) {
     var pane = document.querySelector('[data-lib-detail-pane="supply"]');
     if (!pane) return;
@@ -1104,8 +1182,12 @@
       var nameB = supplierB && supplierB.name ? supplierB.name : '';
       return nameA.localeCompare(nameB, 'zh');
     });
+    var toolbar =
+      '<div class="mdl-ing-bar">' +
+      '<button type="button" class="mdl-btn mdl-btn--primary" data-lib-supply-add>+ 新增供货关系</button>' +
+      '</div>';
     if (!rows.length) {
-      pane.innerHTML = '<div class="mdl-ing-empty">暂无该商品的供货关系</div>';
+      pane.innerHTML = toolbar + '<div class="mdl-ing-empty">暂无该商品的供货关系</div>';
       return;
     }
     var body = rows.map(function (row) {
@@ -1124,6 +1206,7 @@
         '</tr>';
     }).join('');
     pane.innerHTML =
+      toolbar +
       '<div class="mdl-supply-summary">共 ' + rows.length + ' 条供货关系</div>' +
       '<div class="mdl-ing-table-wrap"><table class="mdl-ing-table"><thead><tr>' +
       '<th>供应商编码</th><th>供应商</th><th>采购核定价</th><th>实际采购单位</th><th>最小起订量</th><th>价格状态</th><th>样品状态</th><th>是否主供应商</th><th>状态</th>' +
@@ -2328,6 +2411,22 @@
       html += goodsInput('libGoodsShelf', '保质期天数', 'number', '请输入天数', fieldRequired(resolved, 'shelfLife'));
     }
     html += goodsSelect('libGoodsBrand', '商品品牌', brandChoices(item && item.brand), true);
+    var cStore = window.MasterDataComplianceStore;
+    var typeCodes = (cStore ? cStore.activeTemplates() : []).map(function (t) { return t.code; });
+    html += goodsField(
+      'libGoodsComplianceEnabled',
+      '<i>*</i>合规管控',
+      '<select class="mdl-goods-field__control" id="libGoodsComplianceEnabled"><option value="0">否</option><option value="1">是</option></select>'
+    );
+    html += goodsField(
+      'libGoodsComplianceType',
+      '管控类型',
+      '<select class="mdl-goods-field__control" id="libGoodsComplianceType"><option value="">请选择</option>' +
+      typeCodes.map(function (code) {
+        var tpl = cStore.findTemplate(code);
+        return '<option value="' + escapeHtml(code) + '">' + escapeHtml(tpl ? tpl.name : code) + '</option>';
+      }).join('') + '</select>'
+    );
     if (fieldVisible(resolved, 'operateMode')) {
       html += goodsSelect('libGoodsOperate', '经营方式', ['代采代销', '购销', '联营'], fieldRequired(resolved, 'operateMode'));
     }
@@ -2424,6 +2523,12 @@
     var brand = readGoodsValue('libGoodsBrand');
     if (!brand) {
       if (typeof showToast === 'function') showToast('请选择商品品牌', 'warning');
+      return;
+    }
+    var complianceEnabled = readGoodsValue('libGoodsComplianceEnabled') === '1';
+    var complianceType = readGoodsValue('libGoodsComplianceType');
+    if (complianceEnabled && !complianceType) {
+      if (typeof showToast === 'function') showToast('请选择管控类型', 'warning');
       return;
     }
     var operateMode = readGoodsValue('libGoodsOperate');
@@ -2561,16 +2666,24 @@
       scene: keepOrRead(showCopy, 'libGoodsScene', 'scene'),
       afterSale: keepOrRead(showCopy, 'libGoodsAfterSale', 'afterSale'),
       graphicDetail: keepOrRead(showCopy, 'libGoodsGraphicDetail', 'graphicDetail'),
-      attrs: draftAttrs
+      attrs: draftAttrs,
+      complianceEnabled: complianceEnabled,
+      complianceType: complianceEnabled ? complianceType : ''
     };
     if (prev) {
       PRODUCTS[editingIndex] = record;
+      if (window.MasterDataComplianceStore) {
+        window.MasterDataComplianceStore.setGoodsFlag(record.sku, complianceEnabled, complianceType);
+      }
       closeGoodsModal();
       renderLibrary();
       if (typeof showToast === 'function') showToast('商品已更新', 'success');
       return;
     }
     PRODUCTS.push(record);
+    if (window.MasterDataComplianceStore) {
+      window.MasterDataComplianceStore.setGoodsFlag(record.sku, complianceEnabled, complianceType);
+    }
     closeGoodsModal();
     var addedList = visibleProducts();
     var addedIndex = addedList.indexOf(record);
@@ -2633,6 +2746,11 @@
     writeControl('libGoodsBarcode', item.barcode);
     writeControl('libGoodsShelf', item.shelfLife);
     writeControl('libGoodsBrand', item.brand);
+    var cFlag = window.MasterDataComplianceStore && item.sku
+      ? window.MasterDataComplianceStore.getGoodsFlag(item.sku)
+      : { enabled: !!item.complianceEnabled, type: item.complianceType || '' };
+    writeControl('libGoodsComplianceEnabled', (cFlag.enabled || item.complianceEnabled) ? '1' : '0');
+    writeControl('libGoodsComplianceType', cFlag.type || item.complianceType || '');
     writeControl('libGoodsOperate', item.operateMode);
     writeControl('libGoodsWeigh', item.weigh);
     writeControl('libGoodsTemp', item.tempLayer);
@@ -3514,6 +3632,43 @@
     });
   }
 
+  function injectComplianceDemoGoods() {
+    var cStore = window.MasterDataComplianceStore;
+    if (!cStore || !cStore.demoCatalogGoods) return;
+    cStore.demoCatalogGoods().forEach(function (demo) {
+      if (PRODUCTS.some(function (p) { return p.sku === demo.sku || p.barcode === demo.barcode; })) return;
+      PRODUCTS.push({
+        category: demo.category,
+        spu: demo.spu,
+        sku: demo.sku,
+        barcode: demo.barcode,
+        barcodeCount: 1,
+        name: demo.name,
+        brand: '汉言',
+        purchasePrice: demo.purchasePrice,
+        purchaseQty: 0,
+        purchaseUnit: demo.purchaseUnit,
+        minQty: 0,
+        minUnit: '支',
+        specQty: 0,
+        specUnit: '支',
+        packQty: 0,
+        packUnit: '箱',
+        amount: 0,
+        tone: demo.tone,
+        mark: demo.mark,
+        status: 'active',
+        shelfLife: demo.shelfLife,
+        tempLayer: demo.tempLayer,
+        operateMode: demo.operateMode,
+        complianceEnabled: true,
+        complianceType: demo.complianceType,
+        attrs: []
+      });
+      cStore.setGoodsFlag(demo.sku, true, demo.complianceType);
+    });
+  }
+
   function init() {
     if (!store || typeof store.load !== 'function') return;
     store.load();
@@ -3521,6 +3676,7 @@
     addSameSpuSpecs();
     assignMissingSpu();
     assignAllSkus();
+    injectComplianceDemoGoods();
     window.MasterDataGoodsCatalog = PRODUCTS.filter(function (item) {
       return item && item.sku;
     }).map(function (item) {
@@ -3536,7 +3692,9 @@
         tempLayer: item.tempLayer || '',
         operateMode: item.operateMode || '',
         tone: item.tone || 'blue',
-        mark: item.mark || (item.name || '').charAt(0)
+        mark: item.mark || (item.name || '').charAt(0),
+        complianceEnabled: !!item.complianceEnabled,
+        complianceType: item.complianceType || ''
       };
     });
     if (!document.getElementById('libTableBody')) return;

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>冷丰 - 新建/编辑合规档案</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/lf-mdm-from-master.css">
+    <link rel="stylesheet" href="../css/lf-product.css">
+    <link rel="stylesheet" href="../css/lf-mdm-edit-page.css">
+    <link rel="stylesheet" href="../css/lf-mdm-points-rule.css">
+    <link rel="stylesheet" href="../css/lf-mdm-biz-tip.css">
+    <link rel="stylesheet" href="../css/master-data-brand.css">
+    <link rel="stylesheet" href="../css/master-data-compliance.css">
+</head>
+<body>
+    <div id="sidebar-container"></div>
+    <script src="../js/path-prefix.js"></script>
+    <script src="../js/master-data-sidebar.js"></script>
+    <div id="header-container"></div>
+    <div class="container">
+        <main class="main-content mdm-edit-page">
+            <div class="compliance-form-wrap">
+                <div class="pts-rule-card">
+                    <div class="pts-rule-card__title" id="dosFormTitle">新建合规档案</div>
+                    <div class="pts-rule-card__body">
+                        <div class="mdm-biz-tip mdm-biz-tip--flush" role="note">管控类型选定后不可修改。主体证照请先在<strong>供应商档案</strong>维护，再于下方引用。</div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label">档案编号</div>
+                            <div class="pts-rule-field__control"><input class="erp-input" id="dosFormCode" readonly tabindex="-1"></div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label"><span class="erp-req">*</span>管控类型</div>
+                            <div class="pts-rule-field__control"><select class="erp-select" id="dosFormType"></select></div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label"><span class="erp-req">*</span>证照编号</div>
+                            <div class="pts-rule-field__control"><input class="erp-input" id="dosFormCertNo" maxlength="64" placeholder="国妆特字号 / 备案号" autocomplete="off"></div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label"><span class="erp-req">*</span>合规品名</div>
+                            <div class="pts-rule-field__control"><input class="erp-input" id="dosFormProductName" maxlength="80" placeholder="注册/备案上的产品名称" autocomplete="off"></div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label">内部备注名</div>
+                            <div class="pts-rule-field__control"><input class="erp-input" id="dosFormAlias" maxlength="40" placeholder="选填" autocomplete="off"></div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label"><span class="erp-req">*</span>委托方</div>
+                            <div class="pts-rule-field__control"><select class="erp-select" id="dosFormPrincipal"></select></div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label"><span class="erp-req">*</span>生产方</div>
+                            <div class="pts-rule-field__control"><select class="erp-select" id="dosFormManufacturer"></select></div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label">发证/备案日期</div>
+                            <div class="pts-rule-field__control"><input class="erp-input" id="dosFormIssueDate" type="date"></div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label">长期有效</div>
+                            <div class="pts-rule-field__control pts-rule-check-row">
+                                <label class="pts-rule-check-label"><input type="checkbox" id="dosFormLongTerm"> 长期有效</label>
+                            </div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label">有效期起</div>
+                            <div class="pts-rule-field__control"><input class="erp-input" id="dosFormValidFrom" type="date"></div>
+                        </div>
+                        <div class="pts-rule-field">
+                            <div class="pts-rule-field__label">有效期止</div>
+                            <div class="pts-rule-field__control"><input class="erp-input" id="dosFormValidTo" type="date"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pts-rule-card">
+                    <div class="pts-rule-card__title">合规范本</div>
+                    <div class="pts-rule-card__body" id="dosFormTplSummary"></div>
+                </div>
+
+                <div class="pts-rule-card">
+                    <div class="pts-rule-card__title">主体证引用</div>
+                    <div class="pts-rule-card__body" id="dosFormRefs"></div>
+                </div>
+
+                <div class="pts-rule-card">
+                    <div class="pts-rule-card__title">包内附件</div>
+                    <div class="pts-rule-card__body" id="dosFormUploads"></div>
+                </div>
+
+                <div class="pts-rule-card">
+                    <div class="pts-rule-card__title">商品映射
+                        <button type="button" class="mdb-btn mdb-btn--primary" id="dosMapAddBtn" style="margin-left:auto;height:28px;">+ 添加货号</button>
+                    </div>
+                    <div class="pts-rule-card__body">
+                        <div class="mdb-table-wrap compliance-map-table">
+                            <table class="mdb-table">
+                                <thead><tr><th>货号</th><th>规格备注</th><th class="mdb-table__op">操作</th></tr></thead>
+                                <tbody id="dosMapBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mdm-edit-page__footer pts-rule-actions">
+                <button type="button" class="erp-btn" id="dosFormCancel">取消</button>
+                <button type="button" class="erp-btn" id="dosFormDraft">保存草稿</button>
+                <button type="button" class="erp-btn erp-btn--primary" id="dosFormActive">保存并生效</button>
+            </div>
+        </main>
+    </div>
+    <script src="../js/common.js"></script>
+    <script src="../js/master-data-supplier-store.js"></script>
+    <script src="../js/master-data-compliance-store.js"></script>
+    <script src="../js/master-data-compliance-dossier-form.js"></script>
+</body>
+</html>

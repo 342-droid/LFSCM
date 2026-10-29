@@ -42,10 +42,13 @@
   }
 
   var state = {
-    query: { sku: '', spu: '', name: '', barcode: '', supplier: '', operateMode: '', priceStatus: '', sampleStatus: '', status: '' },
+    query: { sku: '', spu: '', name: '', barcode: '', supplier: '', operateMode: '', priceStatus: '', sampleStatus: '', status: '', compliance: '' },
     page: 1,
     pageSize: 20,
-    editingId: null
+    editingId: null,
+    lockedSku: null,
+    lockedProduct: null,
+    saveCallback: null
   };
 
   function escapeHtml(text) {
@@ -228,6 +231,12 @@
       if (query.priceStatus && item.priceStatus !== query.priceStatus) return false;
       if (query.sampleStatus && item.sampleStatus !== query.sampleStatus) return false;
       if (query.status && relationStatus(item) !== query.status) return false;
+      if (query.compliance) {
+        var agg = window.MasterDataComplianceStore
+          ? window.MasterDataComplianceStore.goodsAggregate(item.sku)
+          : { status: 'none' };
+        if (agg.status !== query.compliance) return false;
+      }
       return true;
     }).sort(function (a, b) {
       var skuOrder = String(a.sku || '').localeCompare(String(b.sku || ''), 'en', { numeric: true });
@@ -251,12 +260,15 @@
     var body = document.getElementById('supplyTableBody');
     if (!body) return;
     if (!list.length) {
-      var queried = state.query.sku || state.query.spu || state.query.name || state.query.barcode || state.query.supplier || state.query.operateMode || state.query.priceStatus || state.query.sampleStatus || state.query.status;
-      body.innerHTML = '<tr><td class="mdb-table-empty" colspan="20">' + (queried ? '暂无符合条件的供货关系' : '暂无供货关系') + '</td></tr>';
+      var queried = state.query.sku || state.query.spu || state.query.name || state.query.barcode || state.query.supplier || state.query.operateMode || state.query.priceStatus || state.query.sampleStatus || state.query.status || state.query.compliance;
+      body.innerHTML = '<tr><td class="mdb-table-empty" colspan="21">' + (queried ? '暂无符合条件的供货关系' : '暂无供货关系') + '</td></tr>';
       return;
     }
     var start = (state.page - 1) * state.pageSize;
     body.innerHTML = list.slice(start, start + state.pageSize).map(function (item) {
+      var compliance = window.MasterDataComplianceStore
+        ? window.MasterDataComplianceStore.goodsAggregate(item.sku)
+        : { status: 'none', label: '不管控' };
       return '<tr>' +
         '<td>' + escapeHtml(supplierCode(item)) + '</td>' +
         '<td>' + escapeHtml(supplierName(item)) + '</td>' +
@@ -276,6 +288,7 @@
         '<td>' + escapeHtml(item.priceStatus || '—') + '</td>' +
         '<td><span class="' + sampleClass(item.sampleStatus) + '">' + escapeHtml(item.sampleStatus || '—') + '</span></td>' +
         '<td>' + (item.isPrimary ? '是' : '否') + '</td>' +
+        '<td><span class="mdb-status mdb-status--' + compliance.status + '">' + escapeHtml(compliance.label) + '</span></td>' +
         '<td><span class="mdb-status mdb-status--' + relationStatus(item) + '">' + statusLabel(item) + '</span></td>' +
         '<td class="mdb-table__op"><div class="mdb-table__ops">' +
         '<button type="button" class="mdb-op-btn" data-supply-edit="' + item.id + '">编辑</button>' +
@@ -354,6 +367,9 @@
     var backdrop = document.querySelector('[data-supply-modal]');
     if (backdrop) backdrop.remove();
     state.editingId = null;
+    state.lockedSku = null;
+    state.lockedProduct = null;
+    state.saveCallback = null;
   }
 
   function setAttr(id, value) {
@@ -410,18 +426,34 @@
     return '<div class="mdb-supply-attr"><span>' + label + '</span><strong id="' + id + '">—</strong></div>';
   }
 
-  function openForm(item) {
+  function resolveLockedProduct(options) {
+    if (!options) return null;
+    if (options.product && options.product.sku) {
+      return findProduct(options.product.sku) || options.product;
+    }
+    if (options.sku) return findProduct(options.sku);
+    return null;
+  }
+
+  function openForm(item, options) {
+    options = options || {};
     closeModal();
     state.editingId = item ? item.id : null;
+    state.saveCallback = typeof options.onSaved === 'function' ? options.onSaved : null;
     var editing = !!item;
-    var skuControl = editing
-      ? '<strong id="supplyFormSkuText">' + escapeHtml(item.sku) + '</strong>'
+    var lockedProduct = editing ? null : resolveLockedProduct(options);
+    state.lockedSku = lockedProduct && lockedProduct.sku ? String(lockedProduct.sku) : null;
+    state.lockedProduct = lockedProduct;
+    var productFixed = editing || !!lockedProduct;
+    var previewProduct = editing ? productView(item) : lockedProduct;
+    var skuControl = productFixed
+      ? '<strong id="supplyFormSkuText">' + escapeHtml(editing ? item.sku : lockedProduct.sku) + '</strong>'
       : '<select id="supplyFormSku">' + productOptions('') + '</select>';
     var supplierControl = editing
       ? '<input id="supplyFormSupplier" type="text" value="' + escapeHtml(supplierName(item)) + '" readonly tabindex="-1">'
       : '<select id="supplyFormSupplier">' + supplierOptions('') + '</select>';
     var backdrop = document.createElement('div');
-    backdrop.className = 'erp-modal-backdrop product-category-modal-backdrop';
+    backdrop.className = 'erp-modal-backdrop product-category-modal-backdrop' + (options.nested ? ' erp-modal-backdrop--nested' : '');
     backdrop.setAttribute('data-supply-modal', '1');
     backdrop.innerHTML =
       '<div class="erp-modal mdb-modal mdb-supply-modal" role="dialog" aria-modal="true">' +
@@ -429,11 +461,11 @@
       '<div class="erp-modal__header-actions"><button type="button" class="erp-modal__header-btn" data-supply-close aria-label="关闭">&times;</button></div></div>' +
       '<div class="erp-modal__body"><div class="mdb-supply-layout">' +
       '<section class="mdb-supply-section"><h3 class="mdb-supply-section__title">商品信息</h3>' +
-      '<div class="mdb-supply-goods' + (editing ? '' : ' is-empty') + '" id="supplyGoodsPanel">' +
+      '<div class="mdb-supply-goods' + (previewProduct ? '' : ' is-empty') + '" id="supplyGoodsPanel">' +
       '<div class="mdb-supply-goods__head"><span class="mdb-supply-image" id="supplyFormImage"></span>' +
-      '<strong class="mdb-supply-goods__name" id="supplyGoodsName">' + (editing ? escapeHtml(item.name) : '请先选择货号') + '</strong></div>' +
+      '<strong class="mdb-supply-goods__name" id="supplyGoodsName">' + (previewProduct ? escapeHtml(previewProduct.name) : '请先选择货号') + '</strong></div>' +
       '<div class="mdb-supply-attrs">' +
-      '<div class="mdb-supply-attr mdb-supply-attr--control"><span>' + (editing ? '' : '<i>*</i>') + '货号</span>' + skuControl + '</div>' +
+      '<div class="mdb-supply-attr mdb-supply-attr--control"><span>' + (productFixed ? '' : '<i>*</i>') + '货号</span>' + skuControl + '</div>' +
       attr('SPU编码', 'supplyFormSpu') +
       attr('货品条码', 'supplyFormBarcode') +
       attr('保质期', 'supplyFormShelf') +
@@ -446,7 +478,7 @@
       field('供应商', supplierControl, true) +
       field('供应商编码', '<input id="supplyFormSupplierCode" type="text" value="' + escapeHtml(editing ? supplierCode(item) : '') + '" readonly tabindex="-1">') +
       field('采购核定价', '<input id="supplyFormApproved" type="number" min="0" step="0.01" placeholder="请输入采购核定价" value="' + escapeHtml(editing ? item.approvedPrice : '') + '">', true) +
-      field('实际采购单位', '<select id="supplyFormActualUnit">' + optionList(unitsForProduct(editing ? productView(item) : null, editing ? (item.actualPurchaseUnit || '') : ''), editing ? (item.actualPurchaseUnit || '') : '', '请选择') + '</select>', true) +
+      field('实际采购单位', '<select id="supplyFormActualUnit">' + optionList(unitsForProduct(previewProduct, editing ? (item.actualPurchaseUnit || '') : ''), editing ? (item.actualPurchaseUnit || '') : (previewProduct && previewProduct.purchaseUnit ? previewProduct.purchaseUnit : ''), '请选择') + '</select>', true) +
       field('最小起订量', '<input id="supplyFormMinOrder" type="number" min="1" step="1" placeholder="请输入最小起订量" value="' + escapeHtml(editing && item.minOrderQty != null ? item.minOrderQty : '') + '">', true) +
       field('价格状态', '<select id="supplyFormPriceStatus">' + optionList(PRICE_STATUSES, editing ? item.priceStatus : '未核价') + '</select>', true) +
       field('样品状态', '<select id="supplyFormSample">' + optionList(SAMPLE_STATUSES, editing ? item.sampleStatus : '待检') + '</select>', true) +
@@ -463,12 +495,12 @@
     });
     backdrop.querySelector('[data-supply-save]').addEventListener('click', saveRelation);
     var skuEl = backdrop.querySelector('#supplyFormSku');
-    if (skuEl && !editing) skuEl.addEventListener('change', syncProductPreview);
+    if (skuEl && !editing && !lockedProduct) skuEl.addEventListener('change', syncProductPreview);
     var supplierEl = backdrop.querySelector('#supplyFormSupplier');
     if (supplierEl && !editing) supplierEl.addEventListener('change', syncSupplierPreview);
     document.body.appendChild(backdrop);
-    applyProductPreview(editing ? productView(item) : null);
-    var focusEl = document.getElementById(editing ? 'supplyFormApproved' : 'supplyFormSku');
+    applyProductPreview(previewProduct);
+    var focusEl = document.getElementById(editing ? 'supplyFormApproved' : (lockedProduct ? 'supplyFormSupplier' : 'supplyFormSku'));
     if (focusEl) focusEl.focus();
   }
 
@@ -497,7 +529,9 @@
     var statusEl = document.getElementById('supplyFormStatus');
     var primaryEl = document.getElementById('supplyFormPrimary');
     var imageEl = document.getElementById('supplyFormImage');
-    var sku = editing ? editing.sku : (skuEl ? String(skuEl.value || '').trim() : '');
+    var sku = editing
+      ? editing.sku
+      : (state.lockedSku || (skuEl ? String(skuEl.value || '').trim() : ''));
     var supplierId = editing ? editing.supplierId : (supplierEl ? String(supplierEl.value || '').trim() : '');
     if (!sku) {
       toast('请选择货号');
@@ -511,7 +545,7 @@
       toast('该货号已存在此供应商的供货关系');
       return;
     }
-    var product = findProduct(sku) || (editing ? productView(editing) : null);
+    var product = findProduct(sku) || (editing ? productView(editing) : state.lockedProduct) || null;
     var operateMode = product && product.operateMode ? String(product.operateMode).trim() : '';
     if (!operateMode) {
       toast('所选货号缺少经营方式');
@@ -589,10 +623,12 @@
     }
     if (store) store.save();
     var created = !editing;
+    var cb = state.saveCallback;
     closeModal();
     if (created) state.page = totalPagesOf(visibleRelations().length);
     renderPage();
     toast(created ? '供货关系已创建' : '供货关系已更新', 'success');
+    if (typeof cb === 'function') cb(target, created);
   }
 
   function openWarmConfirm(message, onConfirm) {
@@ -621,6 +657,16 @@
     var item = findRelation(id);
     if (!item) return;
     var disabling = relationStatus(item) !== 'disabled';
+    if (!disabling) {
+      var settings = window.MasterDataComplianceStore && window.MasterDataComplianceStore.settings();
+      if (settings && settings.gateSupplyEnable) {
+        var agg = window.MasterDataComplianceStore.goodsAggregate(item.sku);
+        if (agg.status !== 'none' && agg.status !== 'complete') {
+          toast('商品合规未齐全，无法启用供货关系', 'warning');
+          return;
+        }
+      }
+    }
     item.status = disabling ? 'disabled' : 'active';
     if (store) store.save();
     renderPage();
@@ -653,7 +699,8 @@
       operateMode: valueOf('supplyQueryOperate'),
       priceStatus: valueOf('supplyQueryPrice'),
       sampleStatus: valueOf('supplyQuerySample'),
-      status: valueOf('supplyQueryStatus')
+      status: valueOf('supplyQueryStatus'),
+      compliance: valueOf('supplyQueryCompliance')
     };
   }
 
@@ -670,11 +717,11 @@
     var resetBtn = document.getElementById('supplyQueryReset');
     if (resetBtn) {
       resetBtn.addEventListener('click', function () {
-        ['supplyQuerySku', 'supplyQuerySpu', 'supplyQueryName', 'supplyQueryBarcode', 'supplyQuerySupplier', 'supplyQueryOperate', 'supplyQueryPrice', 'supplyQuerySample', 'supplyQueryStatus'].forEach(function (id) {
+        ['supplyQuerySku', 'supplyQuerySpu', 'supplyQueryName', 'supplyQueryBarcode', 'supplyQuerySupplier', 'supplyQueryOperate', 'supplyQueryPrice', 'supplyQuerySample', 'supplyQueryStatus', 'supplyQueryCompliance'].forEach(function (id) {
           var el = document.getElementById(id);
           if (el) el.value = '';
         });
-        state.query = { sku: '', spu: '', name: '', barcode: '', supplier: '', operateMode: '', priceStatus: '', sampleStatus: '', status: '' };
+        state.query = { sku: '', spu: '', name: '', barcode: '', supplier: '', operateMode: '', priceStatus: '', sampleStatus: '', status: '', compliance: '' };
         state.page = 1;
         renderPage();
       });
@@ -731,11 +778,30 @@
     }
   }
 
+  function openCreate(options) {
+    RELATIONS = store ? store.all() : RELATIONS;
+    openForm(null, options || {});
+  }
+
+  function openEdit(id, options) {
+    RELATIONS = store ? store.all() : RELATIONS;
+    openForm(findRelation(id), options || {});
+  }
+
   function init() {
     RELATIONS = store ? store.all() : [];
     bindEvents();
     renderPage();
   }
+
+  window.MasterDataSupplyUI = {
+    openCreate: openCreate,
+    openEdit: openEdit,
+    refresh: function () {
+      RELATIONS = store ? store.all() : RELATIONS;
+      renderPage();
+    }
+  };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

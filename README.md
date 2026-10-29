@@ -11,6 +11,10 @@
 | 商品主数据 | 配料类别 | `SCM/master_data_ingredient_category.html` |
 | 商品主数据 | 基础商品库 | `SCM/master_data_product_library.html` |
 | 供应链管理 | 供应商档案 | `SCM/master_data_supplier.html` |
+| 供应链管理 | 合规模板 | `SCM/master_data_compliance_template.html` |
+| 供应链管理 | 新建/编辑合规模板 | `SCM/master_data_compliance_template_form.html` |
+| 供应链管理 | 产品合规档案 | `SCM/master_data_compliance_dossier.html` |
+| 供应链管理 | 新建/编辑合规档案 | `SCM/master_data_compliance_dossier_form.html` |
 | 供应链管理 | 供货关系 | `SCM/master_data_supply.html` |
 
 入口：根目录 `index.html` → 商品分类。
@@ -19,7 +23,7 @@
 
 见 `docs/`：
 
-- 商品分类 / 商品品牌 / 配料类别 / 基础商品库 / 供应商档案 / 供货关系
+- 商品分类 / 商品品牌 / 配料类别 / 基础商品库 / 供应商档案 / 供货关系 / [产品合规档案](docs/产品合规档案.md)
 
 ## 团队规范
 

@@ -5,6 +5,17 @@
   var store = window.MasterDataSupplierStore;
   var SUPPLIERS = store ? store.all() : [];
   var SUPPLIER_TYPES = ['品牌商', '代理商', '个人'];
+  var ROLE_OPTIONS = ['委托方', '生产方'];
+  var CERT_TYPES = (window.MasterDataComplianceStore && window.MasterDataComplianceStore.CERT_TYPES) ||
+    ['营业执照', '生产许可证', '商标注册证', '法人证件人像面', '法人证件国徽面', '食品经营许可证', '其他'];
+
+  if (window.MasterDataComplianceStore && window.MasterDataComplianceStore.mergeDemoSuppliers) {
+    window.MasterDataComplianceStore.mergeDemoSuppliers();
+  }
+  SUPPLIERS.forEach(function (item) {
+    if (!Array.isArray(item.roles)) item.roles = [];
+    if (!Array.isArray(item.certificates)) item.certificates = [];
+  });
 
   var state = {
     query: { name: '', status: '' },
@@ -15,18 +26,16 @@
   var formDocs = emptyDocs();
   var docTarget = '';
   var FACTORY_LIMIT = 6;
+  var CERT_FILE_LIMIT = 6;
 
+  /* 厂房照片独立保留；营业执照等证照统一走「主体证照」，不再用 docs 槽位 */
   function emptyDocs() {
-    return { license: '', foodLicense: '', legalFront: '', legalBack: '', factory: [] };
+    return { factory: [] };
   }
 
   function copyDocs(item) {
     var docs = item && item.docs ? item.docs : {};
     return {
-      license: docs.license || '',
-      foodLicense: docs.foodLicense || '',
-      legalFront: docs.legalFront || docs.legalId || '',
-      legalBack: docs.legalBack || '',
       factory: Array.isArray(docs.factory) ? docs.factory.filter(Boolean).slice() : []
     };
   }
@@ -71,7 +80,7 @@
     if (!body) return;
     if (!list.length) {
       var emptyText = state.query.name || state.query.status ? '暂无符合条件的供应商' : '暂无供应商';
-      body.innerHTML = '<tr><td class="mdb-table-empty" colspan="11">' + emptyText + '</td></tr>';
+      body.innerHTML = '<tr><td class="mdb-table-empty" colspan="12">' + emptyText + '</td></tr>';
       return;
     }
     var start = (state.page - 1) * state.pageSize;
@@ -81,6 +90,7 @@
         '<td><button type="button" class="mdb-code-link" data-supplier-detail="' + item.id + '">' + escapeHtml(item.code) + '</button></td>' +
         '<td>' + escapeHtml(item.name) + '</td>' +
         '<td>' + escapeHtml(item.type) + '</td>' +
+        '<td>' + escapeHtml(rolesLabel(item)) + '</td>' +
         '<td>' + escapeHtml(item.bizContact) + '</td>' +
         '<td>' + escapeHtml(item.bizPhone) + '</td>' +
         '<td>' + escapeHtml(item.warehouseContact) + '</td>' +
@@ -188,25 +198,357 @@
           return detailFrame(src, '厂房照片' + (index + 1));
         }).join('') + '</div>'
       : detailFrame('', '厂房照片');
-    var legalBody = '<div class="mdb-doc-pair">' +
-      '<div><div class="mdb-doc-caption">人像面</div>' + detailFrame(docs.legalFront || docs.legalId, '身份证人像面') + '</div>' +
-      '<div><div class="mdb-doc-caption">国徽面</div>' + detailFrame(docs.legalBack, '身份证国徽面') + '</div>' +
-      '</div>';
-    return '<section class="mdb-detail-docs"><h3>证照资料</h3><div class="mdb-detail-doc-grid">' +
-      detailDocCard('营业执照', detailFrame(docs.license, '营业执照')) +
-      detailDocCard('食品经营许可证', detailFrame(docs.foodLicense, '食品经营许可证')) +
-      detailDocCard('法人证件', legalBody, true) +
+    return '<section class="mdb-detail-docs"><h3>厂房照片</h3>' +
+      '<div class="mdm-biz-tip mdm-biz-tip--flush" role="note">营业执照、食品经营许可证、法人证件等请在<strong>主体证照</strong>页签维护，供合规档案引用。</div>' +
+      '<div class="mdb-detail-doc-grid">' +
       detailDocCard('厂房照片', factoryBody, true) +
       '</div></section>';
+  }
+
+  function rolesLabel(item) {
+    var roles = Array.isArray(item.roles) ? item.roles.filter(Boolean) : [];
+    return roles.length ? roles.join('、') : '—';
+  }
+
+  function certExpiryBadge(cert) {
+    var cStore = window.MasterDataComplianceStore;
+    var status = cStore ? cStore.certExpiryStatus(cert) : 'valid';
+    var map = { valid: '有效', expiring: '即将过期', expired: '已过期', void: '作废' };
+    return '<span class="mdb-status mdb-status--' + status + '">' + (map[status] || status) + '</span>';
+  }
+
+  function certFiles(cert) {
+    return Array.isArray(cert && cert.files) ? cert.files.filter(Boolean) : [];
+  }
+
+  function certFilePreview(cert) {
+    var files = certFiles(cert);
+    if (!files.length) return '—';
+    return '<div class="mdb-cert-thumbs">' + files.slice(0, 3).map(function (src, index) {
+      return '<img src="' + escapeHtml(src) + '" alt="附件' + (index + 1) + '">';
+    }).join('') + (files.length > 3 ? '<span class="mdb-cert-thumbs__more">+' + (files.length - 3) + '</span>' : '') + '</div>';
+  }
+
+  function renderCertPane(item) {
+    if (!Array.isArray(item.certificates)) item.certificates = [];
+    var rows = item.certificates.map(function (cert) {
+      var op = cert.status === 'void'
+        ? ''
+        : '<button type="button" class="mdb-op-btn" data-cert-edit="' + escapeHtml(cert.id) + '">编辑</button>' +
+          '<button type="button" class="mdb-op-btn mdb-op-btn--danger" data-cert-void="' + escapeHtml(cert.id) + '">作废</button>';
+      return '<tr>' +
+        '<td>' + escapeHtml(cert.type) + '</td>' +
+        '<td>' + escapeHtml(cert.certNo || '—') + '</td>' +
+        '<td>' + escapeHtml(cert.longTerm ? '长期有效' : (cert.validTo || '—')) + '</td>' +
+        '<td>' + certExpiryBadge(cert) + '</td>' +
+        '<td>' + certFilePreview(cert) + '</td>' +
+        '<td class="mdb-table__op"><div class="mdb-table__ops">' + op + '</div></td></tr>';
+    }).join('') || '<tr><td class="mdb-table-empty" colspan="6">暂无主体证照</td></tr>';
+    return '<div class="mdm-biz-tip" role="note">主体证照一处维护、多档案包引用；换证请<strong>作废旧证后新增</strong>。</div>' +
+      '<div style="margin-bottom:10px"><button type="button" class="mdb-btn mdb-btn--primary" data-cert-add>+ 新增证照</button></div>' +
+      '<div class="mdb-table-wrap"><table class="mdb-table"><thead><tr><th>证照类型</th><th>证号</th><th>有效期</th><th>状态</th><th>附件</th><th class="mdb-table__op">操作</th></tr></thead><tbody>' +
+      rows + '</tbody></table></div>';
+  }
+
+  function renderCertFormFiles(files) {
+    var box = document.querySelector('[data-cert-file-list]');
+    if (!box) return;
+    var list = Array.isArray(files) ? files : [];
+    var html = list.map(function (src, index) {
+      return docThumb(src, '证照附件', 'cert:' + index);
+    }).join('');
+    if (list.length < CERT_FILE_LIMIT) html += docAddButton('cert', '证照附件');
+    box.innerHTML = html;
+  }
+
+  /* 各证照类型 OCR：版面识别项 → 表单回填字段（原型仅展示要求） */
+  var CERT_OCR_BY_TYPE = {
+    '营业执照': {
+      source: ['名称', '统一社会信用代码', '类型', '法定代表人', '住所', '成立日期', '营业期限', '登记机关'],
+      maps: [
+        { field: 'name', label: '证照名称', from: '名称' },
+        { field: 'certNo', label: '证号', from: '统一社会信用代码' },
+        { field: 'issuer', label: '发证机关', from: '登记机关' },
+        { field: 'issueDate', label: '发证日期', from: '成立日期' },
+        { field: 'longTerm', label: '长期有效', from: '营业期限含「长期」' },
+        { field: 'validFrom', label: '有效期起', from: '营业期限起' },
+        { field: 'validTo', label: '有效期止', from: '营业期限止（非长期时）' }
+      ],
+      note: '无营业期限或注明长期时，勾选长期有效并清空有效期止。'
+    },
+    '生产许可证': {
+      source: ['企业名称', '许可证编号', '法定代表人', '住所/生产地址', '许可项目', '有效期', '发证机关', '发证日期'],
+      maps: [
+        { field: 'name', label: '证照名称', from: '企业名称或证照标题' },
+        { field: 'certNo', label: '证号', from: '许可证编号' },
+        { field: 'issuer', label: '发证机关', from: '发证机关' },
+        { field: 'issueDate', label: '发证日期', from: '发证日期' },
+        { field: 'longTerm', label: '长期有效', from: '有效期是否长期' },
+        { field: 'validFrom', label: '有效期起', from: '有效期起' },
+        { field: 'validTo', label: '有效期止', from: '有效期止' }
+      ],
+      note: '许可项目仅作识别参考，不单独落库；请人工核对编号与效期。'
+    },
+    '食品经营许可证': {
+      source: ['经营者名称', '许可证编号', '经营场所', '主体业态', '经营项目', '有效期', '发证机关', '发证日期'],
+      maps: [
+        { field: 'name', label: '证照名称', from: '经营者名称或证照标题' },
+        { field: 'certNo', label: '证号', from: '许可证编号' },
+        { field: 'issuer', label: '发证机关', from: '发证机关' },
+        { field: 'issueDate', label: '发证日期', from: '发证日期' },
+        { field: 'longTerm', label: '长期有效', from: '有效期是否长期' },
+        { field: 'validFrom', label: '有效期起', from: '有效期起' },
+        { field: 'validTo', label: '有效期止', from: '有效期止' }
+      ],
+      note: '主体业态、经营项目不单独落库；效期务必核对。'
+    },
+    '商标注册证': {
+      source: ['注册号', '商标/注册人', '核定使用商品/服务', '专用权期限', '发证机关'],
+      maps: [
+        { field: 'name', label: '证照名称', from: '商标或注册人' },
+        { field: 'certNo', label: '证号', from: '注册号' },
+        { field: 'issuer', label: '发证机关', from: '商标局等发证机关' },
+        { field: 'longTerm', label: '长期有效', from: '期限是否长期' },
+        { field: 'validFrom', label: '有效期起', from: '专用权期限起' },
+        { field: 'validTo', label: '有效期止', from: '专用权期限止' }
+      ],
+      note: '商标注册证通常无单独「发证日期」字段；核定类别不单独落库。'
+    },
+    '法人证件人像面': {
+      source: ['姓名', '性别', '民族', '出生', '住址', '公民身份号码'],
+      maps: [
+        { field: 'name', label: '证照名称', from: '姓名' },
+        { field: 'certNo', label: '证号', from: '公民身份号码' }
+      ],
+      note: '人像面一般不识别发证机关与有效期；请配合「法人证件国徽面」补全签发与效期。'
+    },
+    '法人证件国徽面': {
+      source: ['签发机关', '有效期限'],
+      maps: [
+        { field: 'issuer', label: '发证机关', from: '签发机关' },
+        { field: 'longTerm', label: '长期有效', from: '有效期限含「长期」' },
+        { field: 'validFrom', label: '有效期起', from: '有效期限起' },
+        { field: 'validTo', label: '有效期止', from: '有效期限止' }
+      ],
+      note: '国徽面一般不识别姓名与身份证号；证照名称可手填或沿用人像面姓名。'
+    },
+    '其他': {
+      source: ['无固定版式'],
+      maps: [],
+      note: '无专用识别模板：仅存图，字段请全部手填；识别失败不覆盖已填内容。'
+    }
+  };
+
+  function certOcrProfile(type) {
+    return CERT_OCR_BY_TYPE[type] || CERT_OCR_BY_TYPE['其他'];
+  }
+
+  function openCertForm(supplier, cert) {
+    var cStore = window.MasterDataComplianceStore;
+    var isEdit = !!cert;
+    var draft = cert
+      ? JSON.parse(JSON.stringify(cert))
+      : {
+          id: cStore ? cStore.nextCertId() : ('c_' + Date.now()),
+          type: '营业执照',
+          name: '',
+          certNo: '',
+          issuer: '',
+          issueDate: '',
+          longTerm: true,
+          validFrom: '',
+          validTo: '',
+          files: [],
+          remark: '',
+          status: 'active'
+        };
+    if (!Array.isArray(draft.files)) draft.files = [];
+    draft.files = draft.files.filter(Boolean);
+    var typeOpts = CERT_TYPES.map(function (t) {
+      return '<option value="' + escapeHtml(t) + '"' + (draft.type === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+    }).join('');
+    var backdrop = document.createElement('div');
+    /* 叠在供应商详情之上（详情用 product-category-modal-backdrop = 3600） */
+    backdrop.className = 'erp-modal-backdrop erp-modal-backdrop--nested';
+    backdrop.setAttribute('data-cert-modal', '1');
+    backdrop.innerHTML =
+      '<div class="erp-modal mdb-modal mdb-cert-modal" role="dialog" aria-modal="true" style="width:600px">' +
+      '<div class="erp-modal__header"><h2 class="erp-modal__title">' + (isEdit ? '编辑证照' : '新增证照') + '</h2>' +
+      '<div class="erp-modal__header-actions"><button type="button" class="erp-modal__header-btn" data-cert-close>&times;</button></div></div>' +
+      '<div class="erp-modal__body"><div class="mdb-form">' +
+      '<div class="mdm-biz-tip" role="note" data-cert-ocr-tip></div>' +
+      '<label class="mdb-field"><span><i>*</i>证照类型</span><select id="certFormType">' + typeOpts + '</select></label>' +
+      '<div class="mdb-field mdb-field--doc"><span><i>*</i>证照附件</span><div class="mdb-docs" data-cert-file-list></div></div>' +
+      '<p class="mdb-doc-hint">至少上传 1 张图片，支持 JPG、PNG、WEBP、GIF、SVG，每张不超过 2MB，最多 ' + CERT_FILE_LIMIT + ' 张。切换类型会切换识别模板；上传后触发 OCR（原型仅示意）。</p>' +
+      '<div class="mdb-cert-ocr-status" data-cert-ocr-status hidden></div>' +
+      '<label class="mdb-field" data-ocr-field="name"><span>证照名称 <em class="mdb-ocr-tag">OCR</em></span><input id="certFormName" maxlength="40" value="' + escapeHtml(draft.name || '') + '" placeholder="可 OCR 回填，可改"></label>' +
+      '<label class="mdb-field" data-ocr-field="certNo"><span>证号 <em class="mdb-ocr-tag">OCR</em></span><input id="certFormNo" maxlength="64" value="' + escapeHtml(draft.certNo || '') + '" placeholder="可 OCR 回填，可改"></label>' +
+      '<label class="mdb-field" data-ocr-field="issuer"><span>发证机关 <em class="mdb-ocr-tag">OCR</em></span><input id="certFormIssuer" maxlength="40" value="' + escapeHtml(draft.issuer || '') + '" placeholder="可 OCR 回填，可改"></label>' +
+      '<label class="mdb-field" data-ocr-field="issueDate"><span>发证日期 <em class="mdb-ocr-tag">OCR</em></span><input id="certFormIssueDate" type="date" value="' + escapeHtml(draft.issueDate || '') + '"></label>' +
+      '<label class="mdb-field" data-ocr-field="longTerm"><span>长期有效 <em class="mdb-ocr-tag">OCR</em></span><select id="certFormLong"><option value="1"' + (draft.longTerm ? ' selected' : '') + '>是</option><option value="0"' + (!draft.longTerm ? ' selected' : '') + '>否</option></select></label>' +
+      '<label class="mdb-field" data-ocr-field="validFrom"><span>有效期起 <em class="mdb-ocr-tag">OCR</em></span><input id="certFormFrom" type="date" value="' + escapeHtml(draft.validFrom || '') + '"></label>' +
+      '<label class="mdb-field" data-ocr-field="validTo"><span>有效期止 <em class="mdb-ocr-tag">OCR</em></span><input id="certFormTo" type="date" value="' + escapeHtml(draft.validTo || '') + '"' + (draft.longTerm ? ' disabled' : '') + '></label>' +
+      '</div></div>' +
+      '<div class="erp-modal__footer"><button type="button" class="erp-btn" data-cert-close>取消</button>' +
+      '<button type="button" class="erp-btn erp-btn--primary" data-cert-save>确定</button></div></div>';
+    function close() { backdrop.remove(); }
+    function syncLongTerm() {
+      var long = document.getElementById('certFormLong').value === '1';
+      document.getElementById('certFormTo').disabled = long;
+      if (long) document.getElementById('certFormTo').value = '';
+    }
+    function currentType() {
+      var el = document.getElementById('certFormType');
+      return el ? el.value : (draft.type || '其他');
+    }
+    function syncOcrTip() {
+      var tip = backdrop.querySelector('[data-cert-ocr-tip]');
+      var profile = certOcrProfile(currentType());
+      if (!tip) return;
+      var mapHtml = profile.maps.length
+        ? profile.maps.map(function (m) {
+            return '<li><strong>' + escapeHtml(m.label) + '</strong> ← ' + escapeHtml(m.from) + '</li>';
+          }).join('')
+        : '<li>无自动回填字段，请全部手填</li>';
+      tip.innerHTML =
+        '<strong>OCR 识别要求 · ' + escapeHtml(currentType()) + '（正式环境）</strong>' +
+        '<p class="mdb-cert-ocr-lead">上传图片后按该类型版式识别；失败或置信度低时不覆盖已填内容。多图以首张正本为主识别。</p>' +
+        '<div class="mdb-cert-ocr-cols">' +
+        '<div><div class="mdb-cert-ocr-cols__title">版面识别项</div><ul class="mdb-cert-ocr-list">' +
+        profile.source.map(function (s) { return '<li>' + escapeHtml(s) + '</li>'; }).join('') +
+        '</ul></div>' +
+        '<div><div class="mdb-cert-ocr-cols__title">回填到表单</div><ul class="mdb-cert-ocr-list">' + mapHtml + '</ul></div>' +
+        '</div>' +
+        (profile.note ? '<p class="mdb-cert-ocr-note">' + escapeHtml(profile.note) + '</p>' : '');
+    }
+    function syncOcrFieldTags() {
+      var profile = certOcrProfile(currentType());
+      var enabled = {};
+      profile.maps.forEach(function (m) { enabled[m.field] = true; });
+      backdrop.querySelectorAll('[data-ocr-field]').forEach(function (row) {
+        var key = row.getAttribute('data-ocr-field');
+        var on = !!enabled[key];
+        row.classList.toggle('is-ocr-off', !on);
+        var tag = row.querySelector('.mdb-ocr-tag');
+        if (tag) tag.hidden = !on;
+        var input = row.querySelector('input, select');
+        if (input && input.getAttribute('type') !== 'date') {
+          input.placeholder = on ? '可 OCR 回填，可改' : '本类型一般不自动回填，请手填';
+        }
+      });
+    }
+    function refreshOcrUi() {
+      syncOcrTip();
+      syncOcrFieldTags();
+      var status = backdrop.querySelector('[data-cert-ocr-status]');
+      if (status && !status.hidden) showOcrPrototypeStatus();
+    }
+    function showOcrPrototypeStatus() {
+      var box = backdrop.querySelector('[data-cert-ocr-status]');
+      var profile = certOcrProfile(currentType());
+      if (!box) return;
+      box.hidden = false;
+      var fillText = profile.maps.length
+        ? profile.maps.map(function (m) { return m.label; }).join('、')
+        : '无自动回填（请手填）';
+      box.innerHTML =
+        '<strong>OCR 识别中（原型示意）· ' + escapeHtml(currentType()) + '</strong>' +
+        '<p>正式环境将识别并尝试回填：' + escapeHtml(fillText) +
+        '。本原型不执行真实识别，请按上方映射说明核对后手动填写保存。</p>';
+    }
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/jpeg,image/png,image/webp,image/gif,image/svg+xml';
+    fileInput.hidden = true;
+    backdrop.appendChild(fileInput);
+    backdrop.addEventListener('click', function (ev) {
+      if (ev.target === backdrop || ev.target.closest('[data-cert-close]')) {
+        close();
+        return;
+      }
+      var addBtn = ev.target.closest('[data-doc-add="cert"]');
+      if (addBtn) {
+        fileInput.value = '';
+        fileInput.click();
+        return;
+      }
+      var removeBtn = ev.target.closest('[data-doc-remove]');
+      if (removeBtn) {
+        var key = removeBtn.getAttribute('data-doc-remove') || '';
+        if (key.indexOf('cert:') === 0) {
+          draft.files.splice(parseInt(key.slice(5), 10), 1);
+          renderCertFormFiles(draft.files);
+        }
+        return;
+      }
+      if (ev.target.closest('[data-cert-save]')) {
+        var longTerm = document.getElementById('certFormLong').value === '1';
+        var validTo = String(document.getElementById('certFormTo').value || '');
+        if (!longTerm && !validTo) {
+          if (typeof showToast === 'function') showToast('请填写有效期止', 'warning');
+          return;
+        }
+        if (!draft.files.length) {
+          if (typeof showToast === 'function') showToast('请至少上传 1 张证照附件', 'warning');
+          return;
+        }
+        var payload = {
+          id: draft.id,
+          type: document.getElementById('certFormType').value,
+          name: String(document.getElementById('certFormName').value || '').trim(),
+          certNo: String(document.getElementById('certFormNo').value || '').trim(),
+          issuer: String(document.getElementById('certFormIssuer').value || '').trim(),
+          issueDate: String(document.getElementById('certFormIssueDate').value || ''),
+          longTerm: longTerm,
+          validFrom: String(document.getElementById('certFormFrom').value || ''),
+          validTo: longTerm ? '' : validTo,
+          files: draft.files.slice(),
+          remark: draft.remark || '',
+          status: 'active'
+        };
+        if (!payload.name) payload.name = payload.type;
+        if (!Array.isArray(supplier.certificates)) supplier.certificates = [];
+        var idx = supplier.certificates.findIndex(function (c) { return c.id === payload.id; });
+        if (idx >= 0) supplier.certificates[idx] = payload;
+        else supplier.certificates.push(payload);
+        if (store) store.save();
+        close();
+        openDetail(supplier);
+        if (typeof showToast === 'function') showToast(isEdit ? '证照已更新' : '证照已添加', 'success');
+      }
+    });
+    fileInput.addEventListener('change', function () {
+      var file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      readDocFile(file, function (url) {
+        if (draft.files.length >= CERT_FILE_LIMIT) {
+          if (typeof showToast === 'function') showToast('证照附件最多 ' + CERT_FILE_LIMIT + ' 张', 'warning');
+          return;
+        }
+        draft.files.push(url);
+        renderCertFormFiles(draft.files);
+        showOcrPrototypeStatus();
+        if (typeof showToast === 'function') showToast('已上传附件（原型示意 OCR，请手动核对字段）', 'success');
+      });
+    });
+    document.body.appendChild(backdrop);
+    document.getElementById('certFormLong').addEventListener('change', syncLongTerm);
+    document.getElementById('certFormType').addEventListener('change', refreshOcrUi);
+    renderCertFormFiles(draft.files);
+    refreshOcrUi();
+    if (draft.files.length) showOcrPrototypeStatus();
   }
 
   function openDetail(item) {
     if (!item) return;
     closeDetail();
+    if (!Array.isArray(item.roles)) item.roles = [];
+    if (!Array.isArray(item.certificates)) item.certificates = [];
     var infoHtml =
       detailField('供应商编码', item.code) +
       detailField('供应商名称', item.name) +
       detailField('供应商类型', item.type) +
+      detailField('主体角色', rolesLabel(item)) +
       detailField('状态', statusLabel(item)) +
       detailField('业务联系人', item.bizContact) +
       detailField('业务联系电话', item.bizPhone) +
@@ -228,15 +570,19 @@
       '<button type="button" class="mdl-detail-edit" data-supplier-detail-edit>' +
       '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 20h4l10.5-10.5-4-4L4 16v4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>' +
       '编辑</button></div>' +
-      '<p class="mdl-detail-hero__meta">供应商编码：' + escapeHtml(detailText(item.code)) + ' · 供应商类型：' + escapeHtml(detailText(item.type)) + ' · 状态：' + escapeHtml(statusLabel(item)) + '</p>' +
+      '<p class="mdl-detail-hero__meta">供应商编码：' + escapeHtml(detailText(item.code)) + ' · 供应商类型：' + escapeHtml(detailText(item.type)) +
+      ' · 主体角色：' + escapeHtml(rolesLabel(item)) + ' · 状态：' + escapeHtml(statusLabel(item)) + '</p>' +
       '</div></div>' +
       '<div class="mdl-detail-tags">' +
       '<span class="mdl-detail-tag">' + escapeHtml(detailText(item.type)) + '</span>' +
+      (item.roles || []).map(function (r) { return '<span class="mdl-detail-tag">' + escapeHtml(r) + '</span>'; }).join('') +
       '<span class="mdl-detail-tag">' + escapeHtml(statusLabel(item)) + '</span>' +
       '</div>' +
       '<div class="mdl-detail-tabs" role="tablist">' +
-      '<button type="button" class="mdl-detail-tabs__item is-active">基本信息</button></div>' +
-      '<div class="mdl-detail-pane"><div class="mdl-detail-grid">' + infoHtml + '</div>' + detailDocsSection(item.docs) + '</div>' +
+      '<button type="button" class="mdl-detail-tabs__item is-active" data-supplier-detail-tab="info">基本信息</button>' +
+      '<button type="button" class="mdl-detail-tabs__item" data-supplier-detail-tab="certs">主体证照</button></div>' +
+      '<div class="mdl-detail-pane" data-supplier-detail-pane="info"><div class="mdl-detail-grid">' + infoHtml + '</div>' + detailDocsSection(item.docs) + '</div>' +
+      '<div class="mdl-detail-pane" data-supplier-detail-pane="certs" hidden>' + renderCertPane(item) + '</div>' +
       '</div></div>';
     backdrop.addEventListener('click', function (ev) {
       if (ev.target === backdrop || ev.target.closest('[data-supplier-detail-close]')) {
@@ -246,6 +592,39 @@
       if (ev.target.closest('[data-supplier-detail-edit]')) {
         closeDetail();
         openForm(item);
+        return;
+      }
+      var tab = ev.target.closest('[data-supplier-detail-tab]');
+      if (tab) {
+        var name = tab.getAttribute('data-supplier-detail-tab');
+        backdrop.querySelectorAll('[data-supplier-detail-tab]').forEach(function (btn) {
+          btn.classList.toggle('is-active', btn === tab);
+        });
+        backdrop.querySelectorAll('[data-supplier-detail-pane]').forEach(function (pane) {
+          pane.hidden = pane.getAttribute('data-supplier-detail-pane') !== name;
+        });
+        return;
+      }
+      if (ev.target.closest('[data-cert-add]')) {
+        openCertForm(item, null);
+        return;
+      }
+      var editCert = ev.target.closest('[data-cert-edit]');
+      if (editCert) {
+        var cert = (item.certificates || []).find(function (c) { return c.id === editCert.getAttribute('data-cert-edit'); });
+        openCertForm(item, cert);
+        return;
+      }
+      var voidCert = ev.target.closest('[data-cert-void]');
+      if (voidCert) {
+        var target = (item.certificates || []).find(function (c) { return c.id === voidCert.getAttribute('data-cert-void'); });
+        if (!target) return;
+        openWarmConfirm('确定作废证照「' + (target.name || target.type) + '」？', function () {
+          target.status = 'void';
+          if (store) store.save();
+          openDetail(item);
+          if (typeof showToast === 'function') showToast('证照已作废', 'success');
+        });
       }
     });
     document.body.appendChild(backdrop);
@@ -292,10 +671,6 @@
 
   function snapshotDocs() {
     return {
-      license: formDocs.license || '',
-      foodLicense: formDocs.foodLicense || '',
-      legalFront: formDocs.legalFront || '',
-      legalBack: formDocs.legalBack || '',
       factory: formDocs.factory.slice()
     };
   }
@@ -314,29 +689,6 @@
   }
 
   function renderDocUploads() {
-    var singles = [
-      { key: 'license', label: '营业执照' },
-      { key: 'foodLicense', label: '食品经营许可证' }
-    ];
-    singles.forEach(function (field) {
-      var box = document.querySelector('[data-doc-list="' + field.key + '"]');
-      if (!box) return;
-      box.innerHTML = formDocs[field.key]
-        ? docThumb(formDocs[field.key], field.label, field.key)
-        : docAddButton(field.key, field.label);
-    });
-    var legalBox = document.querySelector('[data-doc-list="legal"]');
-    if (legalBox) {
-      legalBox.innerHTML = [
-        { key: 'legalFront', label: '人像面' },
-        { key: 'legalBack', label: '国徽面' }
-      ].map(function (field) {
-        var control = formDocs[field.key]
-          ? docThumb(formDocs[field.key], '身份证' + field.label, field.key)
-          : docAddButton(field.key, '身份证' + field.label);
-        return '<div class="mdb-doc-slot"><span class="mdb-doc-caption">' + field.label + '</span>' + control + '</div>';
-      }).join('');
-    }
     var factoryBox = document.querySelector('[data-doc-list="factory"]');
     if (!factoryBox) return;
     var html = formDocs.factory.map(function (src, index) {
@@ -380,25 +732,19 @@
       var key = removeBtn.getAttribute('data-doc-remove') || '';
       if (key.indexOf('factory:') === 0) {
         formDocs.factory.splice(parseInt(key.slice(8), 10), 1);
-      } else if (formDocs[key] != null) {
-        formDocs[key] = '';
+        renderDocUploads();
       }
-      renderDocUploads();
     });
     input.addEventListener('change', function () {
       var file = input.files && input.files[0];
       var target = docTarget;
-      if (!file || !target) return;
+      if (!file || target !== 'factory') return;
       readDocFile(file, function (url) {
-        if (target === 'factory') {
-          if (formDocs.factory.length >= FACTORY_LIMIT) {
-            if (typeof showToast === 'function') showToast('厂房照片最多 6 张', 'warning');
-            return;
-          }
-          formDocs.factory.push(url);
-        } else {
-          formDocs[target] = url;
+        if (formDocs.factory.length >= FACTORY_LIMIT) {
+          if (typeof showToast === 'function') showToast('厂房照片最多 6 张', 'warning');
+          return;
         }
+        formDocs.factory.push(url);
         renderDocUploads();
       });
     });
@@ -419,6 +765,12 @@
       '<label class="mdb-field"><span><i>*</i>供应商编码</span><input id="supplierFormCode" type="text" maxlength="20" placeholder="请输入供应商编码" value="' + escapeHtml(item ? item.code : '') + '"></label>' +
       '<label class="mdb-field"><span><i>*</i>供应商名称</span><input id="supplierFormName" type="text" maxlength="40" placeholder="请输入供应商名称" value="' + escapeHtml(item ? item.name : '') + '"></label>' +
       '<label class="mdb-field"><span><i>*</i>供应商类型</span><select id="supplierFormType">' + typeOptions(item ? item.type : '') + '</select></label>' +
+      '<div class="mdb-field"><span>主体角色</span><div class="compliance-check-list" id="supplierFormRoles">' +
+      ROLE_OPTIONS.map(function (role) {
+        var checked = item && Array.isArray(item.roles) && item.roles.indexOf(role) >= 0 ? ' checked' : '';
+        return '<label><input type="checkbox" name="supplierRole" value="' + escapeHtml(role) + '"' + checked + '>' + escapeHtml(role) + '</label>';
+      }).join('') +
+      '</div></div>' +
       '<label class="mdb-field"><span><i>*</i>业务联系人</span><input id="supplierFormBizContact" type="text" maxlength="20" placeholder="请输入业务联系人" value="' + escapeHtml(item ? item.bizContact : '') + '"></label>' +
       '<label class="mdb-field"><span><i>*</i>业务联系电话</span><input id="supplierFormBizPhone" type="text" maxlength="11" inputmode="numeric" placeholder="请输入11位手机号" value="' + escapeHtml(item ? item.bizPhone : '') + '"></label>' +
       '<label class="mdb-field"><span><i>*</i>仓库联系人</span><input id="supplierFormWarehouseContact" type="text" maxlength="20" placeholder="请输入仓库联系人" value="' + escapeHtml(item ? item.warehouseContact : '') + '"></label>' +
@@ -429,11 +781,9 @@
       '<select id="supplierFormDistrict" aria-label="区"></select>' +
       '</span></label>' +
       '<label class="mdb-field"><span><i>*</i>详细地址</span><input id="supplierFormDetail" type="text" maxlength="80" placeholder="请输入详细地址" value="' + escapeHtml(item ? item.detailAddress : '') + '"></label>' +
-      docUploadRow('license', '营业执照') +
-      docUploadRow('foodLicense', '食品经营许可证') +
-      '<div class="mdb-field mdb-field--doc"><span>法人证件</span><div class="mdb-docs" data-doc-list="legal"></div></div>' +
+      '<div class="mdm-biz-tip" role="note">营业执照、食品经营许可证、法人证件等请在保存后于详情<strong>主体证照</strong>中维护。</div>' +
       docUploadRow('factory', '厂房照片') +
-      '<p class="mdb-doc-hint">支持 JPG、PNG、WEBP、GIF、SVG，每张不超过 2MB。厂房照片最多 6 张。</p>' +
+      '<p class="mdb-doc-hint">厂房照片选填，支持 JPG、PNG、WEBP、GIF、SVG，每张不超过 2MB，最多 6 张。</p>' +
       '</div></div>' +
       '<div class="erp-modal__footer"><button type="button" class="erp-btn" data-supplier-cancel>取消</button>' +
       '<button type="button" class="erp-btn erp-btn--primary" data-supplier-save>确定</button></div></div>';
@@ -460,10 +810,15 @@
     var province = valueOf('supplierFormProvince');
     var city = valueOf('supplierFormCity');
     var district = valueOf('supplierFormDistrict');
+    var roles = [];
+    document.querySelectorAll('input[name="supplierRole"]:checked').forEach(function (el) {
+      roles.push(el.value);
+    });
     return {
       code: valueOf('supplierFormCode'),
       name: valueOf('supplierFormName'),
       type: valueOf('supplierFormType'),
+      roles: roles,
       bizContact: valueOf('supplierFormBizContact'),
       bizPhone: valueOf('supplierFormBizPhone'),
       warehouseContact: valueOf('supplierFormWarehouseContact'),
@@ -525,6 +880,7 @@
       current.code = form.code;
       current.name = form.name;
       current.type = form.type;
+      current.roles = form.roles || [];
       current.bizContact = form.bizContact;
       current.bizPhone = form.bizPhone;
       current.warehouseContact = form.warehouseContact;
@@ -532,17 +888,19 @@
       current.region = form.region;
       current.detailAddress = form.detailAddress;
       current.docs = snapshotDocs();
+      if (!Array.isArray(current.certificates)) current.certificates = [];
       if (store) store.save();
       closeModal();
       renderPage();
       if (typeof showToast === 'function') showToast('供应商已更新', 'success');
       return;
     }
-    SUPPLIERS.push({
+    var created = {
       id: store ? store.nextId() : ('s' + (SUPPLIERS.length + 1)),
       code: form.code,
       name: form.name,
       type: form.type,
+      roles: form.roles || [],
       bizContact: form.bizContact,
       bizPhone: form.bizPhone,
       warehouseContact: form.warehouseContact,
@@ -550,13 +908,16 @@
       region: form.region,
       detailAddress: form.detailAddress,
       docs: snapshotDocs(),
+      certificates: [],
       status: 'active'
-    });
+    };
+    SUPPLIERS.push(created);
     if (store) store.save();
     closeModal();
     state.page = totalPagesOf(visibleSuppliers().length);
     renderPage();
-    if (typeof showToast === 'function') showToast('供应商已创建', 'success');
+    if (typeof showToast === 'function') showToast('供应商已创建，请在详情「主体证照」中维护证照', 'success');
+    openDetail(created);
   }
 
   function toggleStatus(id) {

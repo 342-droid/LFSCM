@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="../css/lf-mdm-from-master.css">
     <link rel="stylesheet" href="../css/lf-product.css">
     <link rel="stylesheet" href="../css/master-data-brand.css">
+    <link rel="stylesheet" href="../css/master-data-compliance.css">
 </head>
 <body>
     <div id="sidebar-container"></div>
@@ -71,6 +72,17 @@
                                         <option value="disabled">停用</option>
                                     </select>
                                 </label>
+                                <label class="mdb-query__field">合规状态
+                                    <select id="supplyQueryCompliance">
+                                        <option value="">全部</option>
+                                        <option value="none">不管控</option>
+                                        <option value="unfiled">未建档</option>
+                                        <option value="complete">齐全</option>
+                                        <option value="missing">缺失</option>
+                                        <option value="expiring">即将过期</option>
+                                        <option value="expired">已过期</option>
+                                    </select>
+                                </label>
                                 <div class="mdb-query__actions">
                                     <button type="submit" class="mdb-btn mdb-btn--primary">查询</button>
                                     <button type="button" class="mdb-btn mdb-btn--ghost" id="supplyQueryReset">重置</button>
@@ -98,6 +110,7 @@
                                             <th>价格状态</th>
                                             <th>样品状态</th>
                                             <th>是否主供应商</th>
+                                            <th>合规状态</th>
                                             <th>状态</th>
                                             <th class="mdb-table__op">操作</th>
                                         </tr>
@@ -130,9 +143,13 @@
     <script src="../js/common.js"></script>
     <script src="../js/master-data-units.js"></script>
     <script src="../js/master-data-category-store.js"></script>
-    <script src="../js/master-data-library.js"></script>
+    <script src="../js/master-data-brand-store.js"></script>
+    <script src="../js/master-data-ingredient-category-store.js"></script>
+    <script src="../js/master-data-field-model.js"></script>
     <script src="../js/master-data-supplier-store.js"></script>
+    <script src="../js/master-data-compliance-store.js"></script>
     <script src="../js/master-data-supply-store.js"></script>
+    <script src="../js/master-data-library.js"></script>
     <script src="../js/master-data-supply.js"></script>
 </body>
 </html>

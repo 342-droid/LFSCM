@@ -28,7 +28,7 @@
 
 ## 供应链页面
 
-- 本仓库仅含顶部「供应链」菜单：商品分类、商品品牌、配料类别、基础商品库、供应商档案、供货关系。
+- 本仓库仅含顶部「供应链」菜单：商品分类、商品品牌、配料类别、基础商品库、供应商档案、合规模板、产品合规档案、供货关系（合规见 `docs/产品合规档案.md`）。
 - 页面须保留 `sidebar-container`、`header-container`、`.container > main.main-content`；侧栏使用 `js/master-data-sidebar.js`。
 - 单位枚举与一级分类「商品单位」配置见 `js/master-data-units.js` 与商品分类 PRD。
 - 业务 PRD 在 `docs/`；团队协作规范在 `docs/team-rules/`；Cursor 自动执行镜像在 `.cursor/rules/`。
